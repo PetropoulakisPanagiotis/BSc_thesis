@@ -1,0 +1,82 @@
+# Return a custom marker #
+def getMarker():
+    aruco_dict = aruco.custom_dictionary(0, 350, 1)
+    aruco_dict.bytesList = np.empty(shape = (1, 15313, 4), dtype = np.uint8)
+
+    tmp = []
+    for i in range(350):
+        x = []
+        for j in range(350):
+
+            if (j > 200 and j < 300) and (i > 180 and i < 300):
+                x.append(1)
+                continue
+            
+            if (j > 100 and j < 170) and (i > 120 and i < 180):
+                x.append(1)
+                continue
+           
+            if (j > 150 and j < 190) and (i > 70 and i < 180):
+                x.append(1)
+                continue
+
+            if (j > 40 and j < 90) and (i > 150 and i < 300):
+                x.append(1)
+                continue
+
+            if (j > 220 and j < 280) and (i > 50 and i < 150):
+                x.append(1)
+                continue
+            x.append(0)
+       
+        tmp.append(x)
+
+    mybits = np.array(tmp, dtype = np.uint8)
+
+    aruco_dict.bytesList[0] = aruco.Dictionary_getByteListFromBits(mybits)
+
+    return aruco_dict
+            params = aruco.DetectorParameters_create()
+            corners, ids, rejectedPoints = aruco.detectMarkers(currColor.copy(), markers, parameters=params)
+            # Draw marker #
+            #frame_markers = aruco.drawDetectedMarkers(currColor.copy(), corners, ids) 
+            #plt.figure()
+            #plt.imshow(frame_markers)
+            #for i in range(len(ids)):
+            #    c = corners[i][0]
+            #    plt.plot([c[:, 0].mean()], [c[:, 1].mean()], 'o', label = "id={0}".format(ids[i]))
+            #plt.legend()
+            #plt.show()   
+
+
+             # Get center of marker #
+            c = corners[0][0]
+            centerX = c[:, 0].mean() 
+            centerY = c[:, 1].mean()
+           
+            centerX = int(centerX)
+            centerY = int(centerY) 
+
+
+# Get 3D coordinates for a pixel #
+# From kinect2_link frame        #
+# Front -> Z                     #
+# Right -> X                     #
+# Down  -> Y                     #
+def getXYZPoint(K, x, y, depth):
+        
+        # Bad point #
+        if depth == 0:
+            return (-1.0, -1.0, -1.0)
+        
+        fx = K[0][0]
+        fy = K[1][1]
+        cx = K[0][2]
+        cy = K[1][2]
+        
+        Z = depth / 1000.0 # In meters 
+        X = Z * (x - cx) * (1.0/fx)
+        Y = Z * (y - cy) * (1.0/fy)
+
+        return (X, Y, Z)
+

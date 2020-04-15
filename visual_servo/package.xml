@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>visual_servo</name>
+  <version>0.0.1</version>
+  <description>The visual_servo package</description>
+
+  <maintainer email="petropoulakispanagiotis@gmail.com">petropoulakis</maintainer>
+
+  <license>MIT</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <!-- Packages to build this package -->
+  <build_depend>rospy</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>message_filters</build_depend>
+  <build_depend>cv_bridge</build_depend>
+  <build_depend>kinect2_bridge</build_depend>
+  <build_depend>message_runtime</build_depend>
+
+  <!-- Packages to build libraries -->
+  <build_export_depend>rospy</build_export_depend>
+  <build_export_depend>sensor_msgs</build_export_depend>
+  <build_export_depend>message_filters</build_export_depend>
+  <build_export_depend>cv_bridge</build_export_depend>
+  <build_export_depend>kinect2_bridge</build_export_depend>
+  <build_export_depend>message_runtime</build_export_depend>
+  
+  <!-- Packages to run code in this package. Depend on shared libs -->
+  <exec_depend>rospy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>message_filters</exec_depend>
+  <exec_depend>cv_bridge</exec_depend>
+  <exec_depend>kinect2_bridge</exec_depend>
+  <exec_depend>message_runtime</exec_depend>
+</package>
+
+<!-- Petropoulakis Panagiotis -->
