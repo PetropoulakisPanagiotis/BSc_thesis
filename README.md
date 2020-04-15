@@ -2,7 +2,7 @@
 [![python](https://img.shields.io/badge/python-2.7-blue.svg)](https://www.python.org/downloads/release/python-270/)
 
 # Bachelor Thesis
-This is the implementation in Python for Bachelor thesis: [**dsdsdsdds**] [Veni Arakelian](https://google.com)
+This is the implementation in Python for Bachelor thesis: [**dsdsdsdds**] (https://google.com)
 ## Dependencies
 
 
