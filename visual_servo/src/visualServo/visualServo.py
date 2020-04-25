@@ -13,10 +13,10 @@ from cv_bridge import CvBridge
 import helpers
 import time
 from objectDetector.objectDetector import objectDetector
+from pclProcessing import *
 import numpy as np
 from matplotlib import pyplot as plt
 from PIL import Image as imagePil
-from cv2 import aruco 
 import matplotlib  as mpl
 import os
 import tensorflow as tf
@@ -36,47 +36,66 @@ class visualServo:
 
     def __init__(self):
 
+        #########
         # Paths #
+        #########
         self.modelPath = "/home/petropoulakis/Desktop/TensorFlow/workspace/robot_detection/model/frozen_inference_graph.pb"
         self.labelPath = "/home/petropoulakis/Desktop/TensorFlow/workspace/robot_detection/annotations/label_map.pbtxt"
-        self.templatePath = "/home/petropoulakis/catkin_ws/src/visual_servo/data/1.pcd"
-        self.templatePcd = o3d.io.read_point_cloud(self.templatePath) 
+        self.templatePath = "/home/petropoulakis/catkin_ws/src/visual_servo/data/template.pcd"
         
-        #o3d.visualization.draw_geometries([self.templatePcd])
-
+        ##########
         # Topics #
+        ##########
         self.topicColor = "/kinect2/qhd/image_color_rect"
         self.topicDepth = "/kinect2/qhd/image_depth_rect"
         self.topicCameraInfoColor = "/kinect2/qhd/camera_info"
         self.topicCameraInfoDepth = "/kinect2/qhd/camera_info"
-        self.topicVelocity = ""
+        self.topicVelocity = "" # Follower robot
+        self.topicOrientation = ""    # Follower robot 
 
+        #############
         # Main vars #
-        self.width = 960
-        self.height = 540
-        self.maxDepth = 1.2 # Max deviation of depth 
-        self.minAreaBox = 20 
-        self.maxOffsetBox = 22 # Box must be inside the image by offset 
-        self.offsetBox = 20  # Get a bigger box than the original. Must be less than max offset  
-        self.mapY = [] # Chached calculations to convert pixel to 3d coordinate - x component
-        self.mapX = [] # Y - component 
-        self.templatePcd = None # Template pcd for object to find orientation by registration
-        self.color = None # Current frames 
+        #############
+        self.width = 960 # Color 
+        self.height = 540 # Color 
+        self.maxDepth = 1.2 # Cut point away from the detected box(meters) 
+        self.minAreaBox = 40 # Smaller box is false detection  
+        self.maxOffsetBox = 22 # Box must be inside the image by this offset(pixels) 
+        self.boxOffset = 10  # Generate a bigger box from the detected to secure that leader lies inside   
+        self.templatePcd = o3d.io.read_point_cloud(self.templatePath)  # 3D model of leader - for pos estimation 
+        self.color = None 
         self.depth = None
         self.cameraMatrixColor = None
         self.cameraDistortColor = None
-        self.K = None
+        self.K = None # Camera matrix 
         self.D = None
+        self.mapY = [] # Chached calculations to convert a pixel to 3d coordinate 
+        self.mapX = []
         
         # Servo parameters #
-        self.kapa = 0.01 
-        self.gama = 0.005 
-        self.eStar = 1.7 # Desired error 
-        self.maxError = 5.0
-        self.minError = 1.0
-        self.boxOffset = 5 # Take a bigger RoI of the detected box by (boxOffset) pixel   
-
+        self.z = 0.1 # Range: (0, 1) 
+        self.b = 0.2 # Range: > 0)
+        self.servoDevMaxX = 5.0 # Max distance allowed from follower 
+        self.servoDevMinX = 1.0  
+        self.servoDevY = 3.0 
+        self.servoDistance = 1.5 # Goal distance 
+        self.estimationPrev = np.identity(4) # For registration
+        
+        # Worst excecution time per loop(sec)          #
+        # Necessary for velocity estimation            #
+        # Depends on current hadware and               #
+        # the accuracy of detection and pos estimation #
+        self.deltaT = 0.1
+ 
+        # Track pos #  
+        self.xPrev = 0 
+        self.yPrev = 0
+        self.thetaPrev = 0        
+        
+        ###########
         # General #
+        ###########
+
         self.debug = True
         self.printFps = False
         self.success = "True"
@@ -118,8 +137,9 @@ class visualServo:
         self.threadListener = threading.Thread(target=helpers.threadListenerFunc)
         self.threadListener.start()
 
-        # Set sig handler #
+        # Set sig handler for proper termination #
         signal.signal(signal.SIGINT, self.sigHandler)
+        signal.signal(signal.SIGTERM, self.sigHandler)
         signal.signal(signal.SIGTSTP, self.sigHandler)
 
     # Read camera messages #
@@ -141,12 +161,8 @@ class visualServo:
     # Detect object and calculate velocities #
     def servo(self):
         frameRate = 0 # Measure rate of our control
-        countReadCameraMatrix = 0
         depthDevFlag = 0
 
-        # Set marker #
-        #markers = helpers.getMarker()
-        
         # Measure fps #
         startTimeFps = time.time()
 
@@ -167,43 +183,20 @@ class visualServo:
                     self.success = "lost consecutive frames"
                 break
 
-            # Check if we can't receive frames #
+            # Check if we can't receive frames - topics failed #
             nowTimeFps = time.time()
             elapsed = nowTimeFps - startTimeFrame
-            if(elapsed >= 2.0):
+            if((self.xPrev == 0 and elapsed >= 2.0) or elapsed  > self.deltaT):
                 self.success = "Can't receive frames"
                 break
- 
+
+            ######################
             # Read current frame #
-            self.messagesMutex.acquire()
-            if(self.newMessages == True):
-                currColor = self.color.copy()
-                currDepth = self.depth.copy()
-                self.newMessages = False
-           
-                # Read color camera matrix and fix map # 
-                if(countReadCameraMatrix == 0):
-                    self.K = self.cameraMatrixColor
-                    self.D = np.zeros((5,1))
-                    self.K = np.array([[self.K[0], self.K[1], self.K[2]], [self.K[3], self.K[4], self.K[5]], [self.K[6], self.K[7], self.K[8]]])
-                    
-                    # Create map for fast calculations # 
-                    self.mapX, self.mapY = helpers.createMap(self.K, self.width, self.height) 
-                    countReadCameraMatrix = 1
-            else:
-                self.messagesMutex.release()
+            ######################
+            currColor, currDepth = self.readFrame()
+            if(currColor == None)
                 continue
-
-            self.messagesMutex.release()
-
-            # Empty frame #
-            if currColor.size == 0:
-                continue
-
-            # Bad K #
-            if np.count_nonzero(self.K) == 0:
-                continue
-
+            
             startTimeFrame = time.time() # Reset timer for new frames 
 
             self.totalFrames += 1
@@ -233,130 +226,156 @@ class visualServo:
             if sum(score >= 0.5 for score in result["detection_scores"]) > 1 or result["detection_scores"][0] < 0.5:
                 continue
            
-            self.pioneerDetector.visualize(currColor, result)
-                
-            cv2.imshow("detect", currColor)
-            cv2.waitKey(0)
+            #self.pioneerDetector.visualize(currColor, result)
+            #cv2.imshow("detect", currColor)
+            #cv2.waitKey(0)
          
             # Extract box #
             box = result["detection_boxes"][0]
+
             # Get real box coordinates - type int #  
             xMin, xMax, yMin, yMax = objectDetector.getBox(self.width, self.height, box)
-            if helpers.validBox(self.maxOffsetBox, self.minAreaBox, xMin, xMax, yMin, yMax, self.width, self.height):
-                continue 
          
             # Create new bigger box #
             xMin, xMax, yMin, yMax = helpers.getNewBox(self.boxOffset, xMin, xMax, yMin, yMax)
+            if helpers.validBox(self.maxOffsetBox, self.minAreaBox, xMin, xMax, yMin, yMax, self.width, self.height):
+                continue 
 
-            # Create point cloud for box #
-            pcd = helpers.createPCD(colorRGB, currDepth, self.mapX, self.mapY, xMin, xMax, yMin, yMax, self.maxDepth)   
-            if pcd == None:
-                continue
+            # Find position of leader with point cloud registration #
+            xNew, yNew, zNew, thetaNew, transformationNew = self.estimatePos(colorRGB, currDepth, xMin, xMax, yMin, self.estimationPrev):
 
-            o3d.visualization.draw_geometries([pcd])
-            o3d.io.write_point_cloud("../../data/37.pcd", pcd)
+            # Estimate velocity of leader #
+            uL, omegaL = self.estimateVelocity(self.xPrev, xNew, self.yPrev, yNew, self.thetaPrev, thetaNew):
 
-            #x, y, z, theta = helpers.getPose()
-
-            '''
-            if ids == None or len(ids) == 0: 
-                self.badDetections += 1
-                self.lostConsecutiveFrames += 1
-                self.totalLostFrames += 1
-                self.lostFrames += 1
-                continue
- 
-            
-            # Check center # 
-            if helpers.checkOutOfBounds(centerX, centerY, self.width, self.height):
-                self.success = "Detection out of bounds" 
-                break
-
-            # Find 3D coordinates for center with respect to the camera #
-            success, cameraX, cameraY, cameraZ = helpers.getXYZ(self.K, centerX, centerY, currDepth, self.width, self.height)
-            if success == False:
-                self.badPointsTotal += 1
-                self.lostFrames += 1
-                self.lostConsecutiveFrames += 1
-                self.totalLostFrames += 1
-                continue
-
-            # Fix initial depth #
-            if depthDevFlag == 0:
-                self.prevDepth = cameraZ
-                depthDevFlag = 1
-
-            # Check deviation of depth # 
-            if cameraZ > self.prevDepth + self.depthDev or cameraZ < self.prevDepth - self.depthDev:
-                self.badDevTotal += 1
-                self.lostFrames += 1
-                self.lostConsecutiveFrames += 1
-                self.totalLostFrames += 1
-                self.prevDepth = cameraZ
-                continue
-
-            #################################################
-            # Perform servoing. Publish velocities to robot #
-            ################################################
-            success = self.servo(cameraX, cameraY, cameraZ)
-            if success == False:
-                self.success = "Servo out of bounds" 
-                break
+            # Calculate and publish velocity command - follower #
+            sucessVel = self.controller(self, xL, yL, zL, thetaL, thetaF, uL, omegaL)
            
-            # Fix stats #
-            frameRate += 1
+            # Update pos # 
+            self.xPrev = xNew
+            self.yPrev = yNew
+            self.thetaPrev = thetaNew
+            self.estimationPrev = transformationNew
 
-            if self.lostConsecutiveFrames != 0:
-                self.lostConsecutiveFrames = 0
-       
-        '''
-            break
-
-        # Stop robot #
+        # End while - Stop follower #
         self.publishVelocities(0.0, 0.0)
 
         # Terminating #
-        rospy.signal_shutdown("Closing kinect handler\n")
-
+        rospy.signal_shutdown("Terminating\n")
+        
         # Wait thread #
         self.threadListener.join()
     
         self.printStats()
     
-    # Find and publish robot velocities with position based visual servo #
-    def controller(self, cameraX, cameraY, cameraZ):
+    # Calculate and publish robot velocities with position based visual servo #
+    # Input must be with respect to the follower frame                        #
+    # Controller: Samson C 1993 Time-varying feedback stabilization of        #
+    # car-like wheeled mobile robots                                          #
+    def controller(self, xL, yL, zL, thetaL, thetaF, uL, omegaL):
 
-        robotX, robotY, robotZ = helpers.convertCameraToRobot(cameraX, cameraY, cameraZ)
-        
-        # Current error #
-        e = math.sqrt(robotY ** 2 + robotX ** 2) 
+        # Position initialization            #
+        # Follow robot with a fixed distance #
+        xError = xL - self.servoDistance
+        yError = yL 
 
-        # Check if we lost the target #
-        if e > self.maxError or e < self.minError:
+        # Lost target #
+        if xL > self.servoDevMaxX or xL < self.servoDevMinX:
             return False
-        
-        # Angle from the goal #
-        a = math.asin(robotY / e)
-        
-        # Controller # 
-        robotU = self.gama * math.cos(a) * (e - self.eStar) 
-        robotOmega = self.kapa * a          
+
+        if yL > self.servoDevY or yL < -self.servoDevY:
+            return False
+
+        # Fix gains #
+        k1 = k3 = 2 * self.z * math.sqrt((omegaL ** 2) + (self.b * (uL ** 2)))
+        k2 = self.b
+
+        # Calculate velocities of follower #
+        uF = (uL * math.cos(thetaL - thetaF)) +
+             (k1 * ((math.cos(thetaF) * xError) + (math.sin(thetaF) * yError)))
+      
+        # Fix limits #
+        if abs(thetaL - thetaF) <= 0.05:
+            tmp = 1
+        else:
+            tmp = (math.sin(thetaL - thetaF) / (thetaL - thetaF)) 
+ 
+        omegaF = omegaL +
+                 (k2 * uL * tmp * (math.cos(thetaF) * xError - math.sin(thetaF) * yError)) +
+                 (k3 * (thetaL - thetaF))
 
         if self.debug:
-            print('X: {:.4} Y: {:.4} Z: {:.4} e: {:.4} a: {:.4} u: {:.4} omega: {:.4}'.format(robotX, robotY, robotZ, e, math.degrees(a), robotU, robotOmega)) 
+            print('Robot velocity:') 
+            print('u: {:.4} omega: {:.4}'.format(uF, omegaF)) 
 
         # Publish velocities #
-        self.publishVelocities(robotU, robotOmega)
+        self.publishVelocities(uF, omegaF)
 
         return True
 
-    # Find position of object by point cloud registration(with template)
-    def estimatePos():
-        pass
+    # Find position of object by point cloud registration(with template) #
+    def estimatePos(colorRGB, currDepth, xMin, xMax, yMin):
+
+        # Create point cloud for box #
+        pcd = pclProcessing.createPCD(colorRGB, currDepth, self.mapX, self.mapY, xMin, xMax, yMin, yMax, self.maxDepth)   
+        if pcd == None:
+            return False
+
+        cX, cY, cZ, theta = pclProcessing.estimatePos(self.templatePcd, pcd, self.estimationPrev) 
+
+        x, y, z = helpers.convertCameraToRobot(cX, cY, cZ)
+
+        return x, y, z, theta
 
     # Estimate velocity of object #
-    def estimateVelocity():
-        pass
+    # Make sure input is valid    #
+    def estimateVelocity(self, x, xNew, y, yNew, theta, thetaNew):
+           
+        if(math.cos(theta) == 0):
+            uL = (yNew - y) / self.deltaT * math.sin(theta)
+        elif(math.sin(theta) == 0):
+            uL = (xNew - x) / self.deltaT * math.cos(theta)
+        else:
+            tmp1 = (xNew - x) / self.deltaT * math.cos(theta)
+            tmp2 = (yNew - y) / self.deltaT * math.sin(theta)
+            uL = (tmp1 + tmp2) / 2
+        
+        omegaL = (thetaNew - theta) / self.deltaT
+
+        return uL, omegaL
+ 
+    # Read current frame #
+    def readFrame(self):
+    
+        self.messagesMutex.acquire()
+        if(self.newMessages == True):
+            
+            currColor = self.color.copy()
+            if currColor.size == 0:
+                return None, None
+            
+            currDepth = self.depth.copy()
+            self.newMessages = False
+       
+            # Read color camera matrix and fix map # 
+            if(self.K == None):
+                
+                self.K = self.cameraMatrixColor
+                if np.count_nonzero(self.K) == 0:
+                    self.K = None
+                    return None, None
+                
+                self.D = np.zeros((5,1))
+                self.K = np.array([[self.K[0], self.K[1], self.K[2]], [self.K[3], self.K[4], self.K[5]], [self.K[6], self.K[7], self.K[8]]])
+                
+                # Create map for fast calculations # 
+                self.mapX, self.mapY = helpers.createMap(self.K, self.width, self.height) 
+        else:
+            self.messagesMutex.release()
+            return None, None
+
+        self.messagesMutex.release()
+
+        return currColor, currDepth
 
     # Publish velocities to robot topic #
     def publishVelocities(self, u, omega):
@@ -373,14 +392,14 @@ class visualServo:
         velMsg.angular.y = 0.0
 
         #self.velPublisher.publish(velMsg)
-  
+
     # Handle signals for proper termination #
     def sigHandler(self, num, frame):
 
         # Stop robot #
         self.publishVelocities(0.0, 0.0)
  
-        rospy.signal_shutdown("Closing kinect handler\n")
+        rospy.signal_shutdown("Terminating\n")
  
         # Wait thread #
         self.threadListener.join()

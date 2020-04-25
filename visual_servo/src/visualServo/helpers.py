@@ -57,6 +57,17 @@ def validBox(maxOffsetBox, minAreaBox, xMin, xMax, yMin, yMax, width, height):
     
     return False
 
+# Check if new predicted pos is valid #
+def validPos(x, xNew, y, yNew, theta, thetaNew, tol=0.05, tol1=0.07, maxTheta=math.pi/2):
+    
+    if abs(xNew - x) > tol or abs(yNew - y) > tol or abs(thetaNew - theta) > tol1:
+        return False
+
+    if(abs(theta) > maxTheta or abs(thetaNew) > maxTheta):
+        return False
+
+    return True 
+
 # Create bigger box from the original #
 def getNewBox(offset, xMin, xMax, yMin, yMax):
     xMin = xMin - offset

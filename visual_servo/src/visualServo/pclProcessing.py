@@ -86,7 +86,7 @@ def estimatePos(template, pcd, transformationEstimation, iter=30, fit=1e-9, rmse
 
     # Check if registration is accurate #
     if result.fitness < 0.65 or result.correspondence_set.shape[0] < 450:
-        return -1, -1, -1, -1
+        return -1, -1, -1, -1, None
     
     # Pick result #
     t = result.transformation
@@ -119,7 +119,7 @@ def estimatePos(template, pcd, transformationEstimation, iter=30, fit=1e-9, rmse
     # Convert result to camera frame #
     x, y, z = convertOpen3DToCamera(x, y, z)
 
-    return x, y, z, theta
+    return x, y, z, theta, result.transformation
 
 def convertOpen3DToCamera(x, y, z):
     rx = np.asarray([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0, 0, 1.0]])
