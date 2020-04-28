@@ -1,0 +1,2 @@
+
+    python /home/petropoulakis/Desktop/TensorFlow/workspace/robot_detection/eval.py --logtostderr --pipeline_config_path=/home/petropoulakis/Desktop/TensorFlow/workspace/robot_detection/training_plans/training_1/pipeline.config --checkpoint_dir=/home/petropoulakis/Desktop/TensorFlow/workspace/robot_detection/training_plans/training_1/ --eval_dir=/home/petropoulakis/Desktop/TensorFlow/workspace/robot_detection/eval/
