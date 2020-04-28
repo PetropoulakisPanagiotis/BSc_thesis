@@ -1,11 +1,8 @@
 from __future__ import division
-import cv2
-from cv2 import aruco 
 import rospy
+import cv2
 import math
 import numpy as np
-import open3d as o3d
-import copy
 from cv_bridge import CvBridge
 
 # Listen messages #
@@ -25,11 +22,14 @@ def readImage(imageMessage):
     # Read and convert image to opencv type #
     return bridge.imgmsg_to_cv2(imageMessage, imageMessage.encoding)
 
-# Create fast mapping for pixel to 3d coordinate #
+# Create fast mapping for pixel to 3d coordinates #
 def createMap(K, width, height):
     mapX = []
     mapY = []
-    
+
+    if(width <= 0 or height <= 0 or K.shape != (3,3)):
+        return [], []   
+ 
     fx = K[0][0]
     fy = K[1][1]
     cx = K[0][2]
@@ -43,13 +43,13 @@ def createMap(K, width, height):
 
     return mapX, mapY
 
-# Assume that the box is out of bounds #
+# Check if box is out of bounds #
 def validBox(maxOffsetBox, minAreaBox, xMin, xMax, yMin, yMax, width, height):
-   
-    if (xMax - xMin) * (yMax - yMin) < minAreaBox:
-        return True
 
-    if (xMax - xMin) < 20 or (yMax - yMin) < 20:
+    if(maxOffsetBox <= 0 or minAreaBox <= 0 or width <= 0 or height <= 0):
+        return False
+
+    if (xMax - xMin) * (yMax - yMin) < minAreaBox:
         return True
 
     if xMin < maxOffsetBox or xMax > width - maxOffsetBox or yMin < maxOffsetBox or yMax > height - maxOffsetBox:
@@ -57,18 +57,9 @@ def validBox(maxOffsetBox, minAreaBox, xMin, xMax, yMin, yMax, width, height):
     
     return False
 
-# Check if new predicted pos is valid #
-def validPos(x, xNew, y, yNew, theta, thetaNew, tol=0.05, tol1=0.07, maxTheta=math.pi/2):
-    
-    if abs(xNew - x) > tol or abs(yNew - y) > tol or abs(thetaNew - theta) > tol1:
-        return False
-
-    if(abs(theta) > maxTheta or abs(thetaNew) > maxTheta):
-        return False
-
-    return True 
-
 # Create bigger box from the original #
+# Use valid box if needed             #
+# Input(in pixels)                    #
 def getNewBox(offset, xMin, xMax, yMin, yMax):
     xMin = xMin - offset
     xMax = xMax + offset
@@ -77,11 +68,14 @@ def getNewBox(offset, xMin, xMax, yMin, yMax):
     
     return xMin, xMax, yMin, yMax
 
-# Find depth of a pixel. Use some neighbors to find a more accurate depth #
-# X, Y must not be quite close to the limits of the image                 #
+# Find depth of a pixel. Use some neighbors for better accuracy #
+# X, Y must not be quite close to the limits of the image       #
 def estimateDepthPixel(depth, x, y):
     Z = 0
     pointsZ = [] 
+
+    if(depth.size == 0 or x - 2 < 0 or x + 2 >= depth.shape[1] or y - 1 < 0 or y + 1 >= depth.shape[0]):
+        return 0.0 
 
     # Scan neighbors #
     for i in range(y - 1, y + 1):
@@ -93,13 +87,14 @@ def estimateDepthPixel(depth, x, y):
                 pointsZ.append(currDepth)
 
     if len(pointsZ) < 5:
-        return Z
+        return 0.0
 
     Z = sum(pointsZ) / len(pointsZ)
 
     return Z
 
-# Convert point to robot frame #
+# Convert point to robot frame             #
+# Depends on the relative pos camera-robot #
 def convertCameraToRobot(cX, cY, cZ):
     translation = np.asarray([[-0.2953], [-0.1154], [1.0215]])
     rx = np.asarray([[1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0, -1.0, 0.0]])
@@ -114,43 +109,50 @@ def convertCameraToRobot(cX, cY, cZ):
 
     return rX, rY, rZ
 
-# Fix max velocities #
-def normalizeVelocity(u, omega):
+# Fix velocities(m/sec) #
+def normalizeVelocity(u, omega, maxU=0.02, maxOmega=0.02):
 
-    if np.abs(u) > 0.02:
+    if(maxU <= 0 or maxOmega <= 0):
+        return None, None
+
+    if np.abs(u) > maxU:
         if u > 0:
-            u = 0.02
+            u = maxU
         else:
-            u = -0.02
+            u = -maxU
 
-    if np.abs(omega) > 0.02:
+    if np.abs(omega) > maxOmega:
         if omega > 0:
-            omega = 0.02
+            omega = maxOmega
         else:
-            omega = -0.02
+            omega = -maxOmega
 
     return u, omega
 
 # Rotation matrix to euler angles(only yaw) #
 def rotationToEuler(R):
-    
+   
+    if(R.shape != (3,3) or R[2,0] > 2 * math.pi or R[2,0] < -2 * math.pi):
+        return None
+     
     if isClose(R[2,0], -1.0):
         yaw = math.pi/2.0
-
     elif isClose(R[2,0], 1.0):
-        yaw = -math.pi/2.0
- 
+        yaw = -math.pi/2.0 
     else:
         yaw = -math.asin(R[2,0])
 
     return yaw
 
+# For rotationToEuler #
 def isClose(x, y, rtol=1.e-5, atol=1.e-8):
-
     return abs(x-y) <= atol + rtol * abs(y)
 
 # Save opencv type image #
 def saveImage(image, path):
+    if(path == "" or image.size == 0):
+        return False
+
     params = []
     params.append(cv2.IMWRITE_JPEG_QUALITY)
     params.append(100)
@@ -160,5 +162,7 @@ def saveImage(image, path):
     params.append(cv2.IMWRITE_PNG_STRATEGY_RLE)
 
     cv2.imwrite(path, image, params)
+    
+    return True
 
 # Petropoulakis Panagiotis

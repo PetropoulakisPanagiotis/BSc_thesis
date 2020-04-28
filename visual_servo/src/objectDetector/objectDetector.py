@@ -29,6 +29,7 @@ class objectDetector:
         self.result = None
         self.sess = None
         self.shapeSplit = 5118 # 1917
+
         # Tensor name's to split #
         self.splitNames = ['Postprocessor/Slice',
                              'Postprocessor/convert_scores',
