@@ -44,18 +44,18 @@ def createMap(K, width, height):
     return mapX, mapY
 
 # Check if box is out of bounds #
-def validBox(maxOffsetBox, minAreaBox, xMin, xMax, yMin, yMax, width, height):
+def validBox(minOffsetBox, minAreaBox, xMin, xMax, yMin, yMax, width, height):
 
-    if(maxOffsetBox <= 0 or minAreaBox <= 0 or width <= 0 or height <= 0):
-        return False
+    if(minOffsetBox <= 0 or minAreaBox <= 0 or width <= 0 or height <= 0 or xMin < 0 or xMax >= width or yMin < 0 or yMax >= height):
+        return False, -1
 
     if (xMax - xMin) * (yMax - yMin) < minAreaBox:
-        return True
+        return False, -2
 
-    if xMin < maxOffsetBox or xMax > width - maxOffsetBox or yMin < maxOffsetBox or yMax > height - maxOffsetBox:
-        return True
+    if xMin < minOffsetBox or xMax > width - minOffsetBox or yMin < minOffsetBox or yMax > height - minOffsetBox:
+        return False, -2
     
-    return False
+    return True, 0
 
 # Create bigger box from the original #
 # Use valid box if needed             #

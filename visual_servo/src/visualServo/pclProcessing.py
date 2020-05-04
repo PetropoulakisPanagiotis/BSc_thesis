@@ -2,6 +2,7 @@ from __future__ import division
 import open3d as o3d
 import numpy as np
 from numpy import linalg as LA
+import copy
 import math
 import helpers
 
@@ -97,10 +98,10 @@ def cleanPCD(pcd, voxelSize=0.008):
     
     return pcd, 0
 
-# Find position and orientation of object       #
-# Use 3D model and perform local registration   #
-# Result is with respect to camera frame        #
-def estimatePos(template, pcd, transformationEstimation, voxelSize = 0.008, iter=50, fit=1e-9, rmse=1e-9, minInliers=400, minFitness = 0.65):
+# Find position and orientation of object           #
+# Use 3D model and perform point cloud registration #
+# Result is with respect to camera frame            #
+def estimatePos(templatePcd, targetPcd, transformationEstimation, voxelSize = 0.016, iter=50, fit=1e-9, rmse=1e-9, minInliers=400, minFitness = 0.65):
     
     if(voxelSize <= 0 or iter <= 0 or fit <= 0 or rmse <= 0 or fit >= 1 or rmse >= 1):
         return -1, -1, -1, -1, np.identity(4), -1
@@ -114,35 +115,34 @@ def estimatePos(template, pcd, transformationEstimation, voxelSize = 0.008, iter
     if(transformationEstimation.shape != (4,4)):
         return -1, -1, -1, -1, np.identity(4), -1
 
-    template = template.voxel_down_sample(voxelSize * 2)
-    pcd = pcd.voxel_down_sample(voxelSize * 2)
+    # Make only local changes in point clouds #
+    template = copy.deepcopy(templatePcd)
+    pcd = copy.deepcopy(targetPcd)
+    
+    template = template.voxel_down_sample(voxelSize)
+    pcd = pcd.voxel_down_sample(voxelSize)
   
-    print(transformationEstimation) 
     pcd.transform(transformationEstimation)
     o3d.visualization.draw_geometries([template, pcd])
-    print("a")
+
     # Initial registration #
     if(np.all(transformationEstimation == np.identity(4))):
+        
+        # Move pcd close to the template      #  
+        # Use the difference in their centers # 
         cTemplate = template.get_center()
-        cTemplate[2] -= 0.05
-
+        cTemplate[2] -= 0.05 # Fow this specific template 
         cPcd = pcd.get_center()
-
-        dif =  cTemplate - cPcd
-
+        dif = cTemplate - cPcd
         pcd.translate(dif)
     
-        radius_feature = voxelSize * 2 * 2.5
+        # Perform global registration #
+        radius_feature = voxelSize * 2.5
         maxNN = 200
+        distance_threshold = voxelSize * 3.5
 
-        distance_threshold = voxelSize * 2 * 3.5
-        pcd_fpfh = o3d.registration.compute_fpfh_feature(
-            pcd,
-            o3d.geometry.KDTreeSearchParamHybrid(radius=radius_feature, max_nn=maxNN))
-
-        template_fpfh = o3d.registration.compute_fpfh_feature(
-            template,
-            o3d.geometry.KDTreeSearchParamHybrid(radius=radius_feature, max_nn=maxNN))
+        pcd_fpfh = o3d.registration.compute_fpfh_feature(pcd, o3d.geometry.KDTreeSearchParamHybrid(radius=radius_feature, max_nn=maxNN))
+        template_fpfh = o3d.registration.compute_fpfh_feature(template, o3d.geometry.KDTreeSearchParamHybrid(radius=radius_feature, max_nn=maxNN))
 
         result = o3d.registration.registration_ransac_based_on_feature_matching(
             pcd, template, pcd_fpfh, template_fpfh, distance_threshold,
@@ -151,20 +151,21 @@ def estimatePos(template, pcd, transformationEstimation, voxelSize = 0.008, iter
                 o3d.registration.CorrespondenceCheckerBasedOnDistance(
                     distance_threshold)
             ], o3d.registration.RANSACConvergenceCriteria(1000000, 1700))
+        
+        # Save result #
         transformationEstimation = result.transformation
 
-    radius = voxelSize * 2 * 1.4
+    # Perform local registration #
+    radius = voxelSize * 1.4
 
     result = o3d.registration.registration_icp(
             pcd, template, radius, transformationEstimation,
             o3d.registration.TransformationEstimationPointToPlane(), 
             o3d.registration.ICPConvergenceCriteria(max_iteration=iter, relative_fitness=fit, relative_rmse=rmse))
 
-    print(result.transformation) 
     pcd.transform(result.transformation)
     o3d.visualization.draw_geometries([template, pcd])
 
-    print("b")
     # Check if registration is accurate #
     if result.fitness < minFitness or len(result.correspondence_set) < minInliers:
         return -1, -1, -1, -1, np.identity(4), -2
