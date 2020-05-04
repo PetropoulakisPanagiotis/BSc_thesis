@@ -3,16 +3,16 @@ import open3d as o3d
 import numpy as np
 from numpy import linalg as LA
 import math
-from helpers import *
+import helpers
 
 # Create point cloud from the detected box  #
 # Convert it to open3d format               #
 # Camera frame: front Z, right X, down Y    #
 # Open3D frame: back Z, right X, up Y       #
 # xMin: in pixels                           #
-def createPCD(color, depth, mapX, mapY, xMin, xMax, yMin, yMax, maxDepth, minNumPoints=400):
+def createPCD(color, depth, mapX, mapY, xMin, xMax, yMin, yMax, maxDepth, minNumPoints=1500, maxNumPoints=10000):
 
-    if(color.size == 0 or depth.size == 0 or depth.size != color.size): 
+    if(color.size == 0 or depth.size == 0 or depth.shape[0] != color.shape[0] or depth.shape[1] != color.shape[1]): 
         return None, -1
     
     if(len(mapX) != color.shape[1] or len(mapY) != color.shape[0]):
@@ -21,9 +21,9 @@ def createPCD(color, depth, mapX, mapY, xMin, xMax, yMin, yMax, maxDepth, minNum
     if(xMin < 0 or xMax >= color.shape[1] or yMin < 0 or yMax >= color.shape[0]):
         return None, -1
  
-    if(maxDepth <= 0 or minNumPoints <= 0):
+    if(maxDepth <= 0 or minNumPoints <= 0 or maxNumPoints <= 0 or maxNumPoints < minNumPoints):
         return None, -1
- 
+    
     # Initialize point cloud of RoI #
     xyz = []
     pcd = o3d.geometry.PointCloud()
@@ -64,6 +64,10 @@ def createPCD(color, depth, mapX, mapY, xMin, xMax, yMin, yMax, maxDepth, minNum
     # Fix pcd #
     pcd, code = cleanPCD(pcd)
     
+    # Not enough inliers # 
+    if(len(pcd.points) < minNumPoints or len(pcd.points) > maxNumPoints):
+        return None, -2
+
     return pcd, code
 
 # Remove floor and bad points             #
@@ -96,33 +100,74 @@ def cleanPCD(pcd, voxelSize=0.008):
 # Find position and orientation of object       #
 # Use 3D model and perform local registration   #
 # Result is with respect to camera frame        #
-def estimatePos(template, pcd, transformationEstimation, voxelSize = 0.008, iter=35, fit=1e-9, rmse=1e-9, minInliers=450, minFitness = 0.65):
+def estimatePos(template, pcd, transformationEstimation, voxelSize = 0.008, iter=50, fit=1e-9, rmse=1e-9, minInliers=400, minFitness = 0.65):
     
     if(voxelSize <= 0 or iter <= 0 or fit <= 0 or rmse <= 0 or fit >= 1 or rmse >= 1):
-        return -1, -1, -1, -1, None, -1
+        return -1, -1, -1, -1, np.identity(4), -1
 
     if(template == None or pcd == None or pcd.has_points() == False or template.has_points() == False):
-        return -1, -1, -1, -1, None, -1
+        return -1, -1, -1, -1, np.identity(4), -1
 
     if(minInliers <= 0 or minFitness <= 0 or minFitness > 1):
-        return -1, -1, -1, -1, None, -1
+        return -1, -1, -1, -1, np.identity(4), -1
 
     if(transformationEstimation.shape != (4,4)):
-        return -1, -1, -1, -1, None, -1
+        return -1, -1, -1, -1, np.identity(4), -1
+
+    template = template.voxel_down_sample(voxelSize * 2)
+    pcd = pcd.voxel_down_sample(voxelSize * 2)
+  
+    print(transformationEstimation) 
+    pcd.transform(transformationEstimation)
+    o3d.visualization.draw_geometries([template, pcd])
+    print("a")
+    # Initial registration #
+    if(np.all(transformationEstimation == np.identity(4))):
+        cTemplate = template.get_center()
+        cTemplate[2] -= 0.05
+
+        cPcd = pcd.get_center()
+
+        dif =  cTemplate - cPcd
+
+        pcd.translate(dif)
+    
+        radius_feature = voxelSize * 2 * 2.5
+        maxNN = 200
+
+        distance_threshold = voxelSize * 2 * 3.5
+        pcd_fpfh = o3d.registration.compute_fpfh_feature(
+            pcd,
+            o3d.geometry.KDTreeSearchParamHybrid(radius=radius_feature, max_nn=maxNN))
+
+        template_fpfh = o3d.registration.compute_fpfh_feature(
+            template,
+            o3d.geometry.KDTreeSearchParamHybrid(radius=radius_feature, max_nn=maxNN))
+
+        result = o3d.registration.registration_ransac_based_on_feature_matching(
+            pcd, template, pcd_fpfh, template_fpfh, distance_threshold,
+            o3d.registration.TransformationEstimationPointToPoint(), 3, [
+                o3d.registration.CorrespondenceCheckerBasedOnEdgeLength(0.85),
+                o3d.registration.CorrespondenceCheckerBasedOnDistance(
+                    distance_threshold)
+            ], o3d.registration.RANSACConvergenceCriteria(1000000, 1700))
+        transformationEstimation = result.transformation
 
     radius = voxelSize * 2 * 1.4
-  
-    template = target.voxel_down_sample(voxelSize * 2)
-    pcd = pcd.voxel_down_sample(voxelSize * 2)
-    
+
     result = o3d.registration.registration_icp(
             pcd, template, radius, transformationEstimation,
             o3d.registration.TransformationEstimationPointToPlane(), 
             o3d.registration.ICPConvergenceCriteria(max_iteration=iter, relative_fitness=fit, relative_rmse=rmse))
 
+    print(result.transformation) 
+    pcd.transform(result.transformation)
+    o3d.visualization.draw_geometries([template, pcd])
+
+    print("b")
     # Check if registration is accurate #
-    if result.fitness < minFitness or result.correspondence_set.shape[0] < minInliers:
-        return -1, -1, -1, -1, None, -2
+    if result.fitness < minFitness or len(result.correspondence_set) < minInliers:
+        return -1, -1, -1, -1, np.identity(4), -2
     
     # Pick result #
     t = result.transformation

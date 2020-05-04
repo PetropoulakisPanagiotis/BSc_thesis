@@ -21,7 +21,7 @@ import tensorflow as tf
 import open3d as o3d
 # Custom #
 from objectDetector.objectDetector import objectDetector
-from pclProcessing import *
+import pclProcessing 
 import helpers
 
 # Disable warnings/warm up messages for tf #
@@ -51,7 +51,7 @@ class visualServo:
         self.topicCameraInfoColor = "/kinect2/qhd/camera_info"
         self.topicCameraInfoDepth = "/kinect2/qhd/camera_info"
         self.topicOrientation = "" # Follower robot 
-        self.topicVelocity = ""    # Follower robot 
+        self.topicVelocity = ""    # Follower robot
 
         #############
         # Main vars #
@@ -65,11 +65,11 @@ class visualServo:
         
         # Set specifications for experiment #
         self.servoDistance = 1.7 # Goal distance from leader - controller
-        maxX = 5.0 # Target lost (meters) 
-        minX = 1.0 
-        devY = 2.5 
-        devZ = 2.0 
-        devTheta = math.pi/2 
+        self.maxX = 5.0 # Target lost (meters) 
+        self.minX = 1.0 
+        self.devY = 2.5 
+        self.devZ = 2.0 
+        self.devTheta = math.pi/2 
         self.totalFrames = 0
         self.totalLostFrames = 0 
         self.totalBadDetections = 0
@@ -102,7 +102,7 @@ class visualServo:
         # Necessary for velocity estimation        #
         # Depends on current hadware,              #
         # accuracy of detection and pos estimation #
-        self.deltaT = 0.1
+        self.deltaT = 20.0
  
         # Track pos #  
         self.xPrev = 0 
@@ -124,6 +124,7 @@ class visualServo:
         signal.signal(signal.SIGINT, self.sigHandler)
         signal.signal(signal.SIGTERM, self.sigHandler)
         signal.signal(signal.SIGTSTP, self.sigHandler)
+        signal.signal(signal.SIGILL, self.sigHandler)
 
         # Listen color and depth # 
         self.subImageColor = Subscriber(self.topicColor, Image, queue_size=1)
@@ -153,6 +154,9 @@ class visualServo:
         self.threadListener = threading.Thread(target=helpers.threadListenerFunc)
         self.threadListener.start()
 
+        if(self.debug):
+            print(self.__str__())   
+ 
     # Read messages #
     def callback(self, imageColor, imageDepth, cameraInfoColor, cameraInfoDepth):
 
@@ -198,7 +202,7 @@ class visualServo:
             # excecution is too slow                     # 
             nowTimeFps = time.time()
             elapsed = nowTimeFps - startTimeFrame
-            if((elapsed >= 2.0) or (self.xPrev != 0 and elapsed  > self.deltaT)):  
+            if((elapsed >= 20.0 and self.xPrev != 0) or (self.xPrev != 0 and elapsed  > self.deltaT)):  
                 self.excecutionCode = "Bad rate of loop"
                 break
 
@@ -206,7 +210,7 @@ class visualServo:
             # Read current frame #
             ######################
             currColor, currDepth = self.readFrame()
-            if(currColor == None)
+            if(currColor.shape == (1,1,3)):
                 continue
             
             startTimeFrame = time.time() # Reset timer for new frames 
@@ -250,11 +254,12 @@ class visualServo:
             # Extract box #
             box = result["detection_boxes"][0]
 
-            # Get real box coordinates - type int #  
+            # Get real box coordinates - type int # 
             xMin, xMax, yMin, yMax = objectDetector.getBox(self.width, self.height, box)
          
             # Create new bigger box #
             xMin, xMax, yMin, yMax = helpers.getNewBox(self.boxOffset, xMin, xMax, yMin, yMax)
+
             valid, code = helpers.validBox(self.maxOffsetBox, self.minAreaBox, xMin, xMax, yMin, yMax, self.width, self.height)
             if code == -1:
                 self.excecutionCode = "Invalid arguments: validBox" 
@@ -265,11 +270,11 @@ class visualServo:
                 break
 
             # Find position of leader with point cloud registration #
-            xNew, yNew, zNew, thetaNew, transformationNew, typeError, code = self.estimatePos(colorRGB, currDepth, xMin, xMax, yMin, self.estimationPrev):
+            xNew, yNew, zNew, thetaNew, transformationNew, typeError, code = self.estimatePos(colorRGB, currDepth, xMin, xMax, yMin, yMax)
             
             if typeError == 1:
                 if code == -1:
-                    self.excecutionCode = "Invalid arguments: estimation pos" 
+                    self.excecutionCode = "Invalid arguments: estimation pos - createPCD" 
                     break
                 else:
                     self.totalInvalidPoints += 1    
@@ -277,7 +282,7 @@ class visualServo:
 
             if typeError == 2:
                 if code == -1:
-                    self.excecutionCode = "Invalid arguments: estimatePos" 
+                    self.excecutionCode = "Invalid arguments: estimate pos - estimationPos" 
                     break
                 else:
                     self.totalBadRegistrations += 1    
@@ -290,9 +295,26 @@ class visualServo:
                 else:
                     self.excecutionCode = "Lost target" 
                     break
-
+ 
+            if(self.xPrev == 0):
+                # Update pos # 
+                self.xPrev = xNew
+                self.yPrev = yNew
+                self.thetaPrev = thetaNew
+                self.estimationPrev = transformationNew
+                self.totalLostFrames -= 1
+                self.lostFrames -= 1
+                self.lostConsecutiveFrames = 0  
+                continue
+            
             # Estimate velocity of leader #
-            uL, omegaL, code = self.estimateVelocity(self.xPrev, xNew, self.yPrev, yNew, self.thetaPrev, thetaNew):
+            uL, omegaL, code = self.estimateVelocity(self.xPrev, xNew, self.yPrev, yNew, self.thetaPrev, thetaNew)
+
+            # Update pos # 
+            self.xPrev = xNew
+            self.yPrev = yNew
+            self.thetaPrev = thetaNew
+            self.estimationPrev = transformationNew
 
             if code == -1:
                 self.excecutionCode = "Invalid arguments: estimateVelocity" 
@@ -308,12 +330,6 @@ class visualServo:
                 self.excecutionCode = "Invalid arguments: controller" 
                 break
           
-            # Update pos # 
-            self.xPrev = xNew
-            self.yPrev = yNew
-            self.thetaPrev = thetaNew
-            self.estimationPrev = transformationNew
-
             # Loop was succesful - reset vars #
             self.totalLostFrames -= 1
             self.lostFrames -= 1
@@ -345,7 +361,7 @@ class visualServo:
         k2 = self.b
 
         # Calculate velocities of follower #
-        uF = (uL * math.cos(thetaL - thetaF)) +
+        uF = (uL * math.cos(thetaL - thetaF)) + \
              (k1 * ((math.cos(thetaF) * xError) + (math.sin(thetaF) * yError)))
       
         # Fix limits #
@@ -354,8 +370,8 @@ class visualServo:
         else:
             tmp = (math.sin(thetaL - thetaF) / (thetaL - thetaF)) 
  
-        omegaF = omegaL +
-                 (k2 * uL * tmp * (math.cos(thetaF) * xError - math.sin(thetaF) * yError)) +
+        omegaF = omegaL + \
+                 (k2 * uL * tmp * (math.cos(thetaF) * xError - math.sin(thetaF) * yError)) + \
                  (k3 * (thetaL - thetaF))
 
         if self.debug:
@@ -369,14 +385,14 @@ class visualServo:
     # Min/Max values depends on this specific experiment #
     # Input: follower frame                              #
     def lostTarget(self, x, y, z, theta, maxX, minX, devY, devZ, devTheta):
-
+        return False, 0
         if(maxX <= 0 or minX <= 0 or devY <= 0 or devZ <= 0 or devTheta < -2 * math.pi or devTheta > 2 * math.pi):          
             return True, -1
 
         if(x > maxX or x < minX or abs(y) > devY or abs(z) > devZ or abs(theta) > devTheta):
             return True, 0
 
-        else
+        else:
             return False, 0
 
     # Find pos of object by point cloud registration(with template) #
@@ -387,18 +403,18 @@ class visualServo:
         # Create point cloud for box #
         pcd, code = pclProcessing.createPCD(colorRGB, currDepth, self.mapX, self.mapY, xMin, xMax, yMin, yMax, self.maxDepth)   
         if pcd == None:
-            return -1, -1, -1, None, 1, code # 1-> createPCD fails + code 
+            return -1, -1, -1, -1, None, 1, code # 1-> createPCD fails + code 
 
         cX, cY, cZ, theta, t, code = pclProcessing.estimatePos(self.templatePcd, pcd, self.estimationPrev) 
-        if t == None:
-            return -1, -1, -1, None, 2, code # 2-> estimatePos fails + code 
+        if np.all(t == np.identity(4)):
+            return -1, -1, -1, -1, None, 2, code # 2-> estimatePos fails + code 
 
         x, y, z = helpers.convertCameraToRobot(cX, cY, cZ)
 
         # Target is far away #
-        lost, code = self.lostTarget(x, y, z, theta, self.maxX, self.minX, self.devY, self.devTheta):
+        lost, code = self.lostTarget(x, y, z, theta, self.maxX, self.minX, self.devY, self.devZ, self.devTheta)
         if lost: 
-            return -1, -1, -1, None, 3, code
+            return -1, -1, -1, -1, None, 3, code
 
         if self.debug:
             print('x: {:.4} y: {:.4} z: {:.4} theta: {}'.format(x, y, z, math.degrees(theta)))             
@@ -411,7 +427,7 @@ class visualServo:
         if(self.deltaT <= 0):
             return None, None, -1 
 
-        if abs(x - xNew) > devX or abs(y - yNew) > devY or abs(theta - thetaNew) > devTheta):
+        if(abs(x - xNew) > devX or abs(y - yNew) > devY or abs(theta - thetaNew) > devTheta):
             return None, None, -2     
    
         if(math.cos(theta) == 0):
@@ -424,6 +440,9 @@ class visualServo:
             uL = (tmp1 + tmp2) / 2
         
         omegaL = (thetaNew - theta) / self.deltaT
+        
+        if self.debug:
+            print('uL: {:.4} omegaL: {:.4}'.format(uL, omegaL))             
 
         return uL, omegaL, 0
  
@@ -435,18 +454,18 @@ class visualServo:
             
             currColor = self.color.copy()
             if currColor.size == 0:
-                return None, None
+                return np.zeros([1,1,3], dtype=np.uint8), np.zeros([1,1,3], dtype=np.uint8)
            
             currDepth = self.depth.copy()
             self.newMessages = False
        
             # Read color camera matrix and fix map # 
-            if(self.K == None):
+            if(self.xPrev == 0):
                 
                 self.K = self.cameraMatrixColor
                 if np.count_nonzero(self.K) == 0:
                     self.K = None
-                    return None, None
+                    return np.zeros([1,1,3], dtype=np.uint8), np.zeros([1,1,3], dtype=np.uint8)
                 
                 self.width = currColor.shape[1]
                 self.height = currColor.shape[0]
@@ -457,11 +476,11 @@ class visualServo:
                 self.mapX, self.mapY = helpers.createMap(self.K, self.width, self.height)
                 if(len(self.mapX) == 0):
                     self.K = None
-                    return None, None 
+                    return np.zeros([1,1,3], dtype=np.uint8), np.zeros([1,1,3], dtype=np.uint8)
         
         else:
             self.messagesMutex.release()
-            return None, None
+            return np.zeros([1,1,3], dtype=np.uint8), np.zeros([1,1,3], dtype=np.uint8)
 
         self.messagesMutex.release()
 
@@ -486,7 +505,7 @@ class visualServo:
     def terminateServo(self):
 
         # Stop robot #
-        if(self.prevX != 0):
+        if(self.xPrev != 0):
             self.publishVelocities(0.0, 0.0)
 
         # Terminating #
@@ -512,19 +531,38 @@ class visualServo:
         exit()
 
     def printStats(self):
-        print("Success: " + self.success)
+        print("Excecution Code: " + self.excecutionCode)
         print("Total frames: " + str(self.totalFrames))
         print("Total lost frames: " + str(self.totalLostFrames))
-        print("Total lost frames due to detection: " + str(self.badDetections))
-        print("Total lost frames due to bad points: " + str(self.badPointsTotal))
-        print("Total lost frames due to bad deviation: " + str(self.badDevTotal))
-
+        print("Total lost frames due to detection: " + str(self.totalBadDetections))
+        print("Total lost frames due to invalid number of points in pcl: " + str(self.totalInvalidPoints))
+        print("Total lost frames due to registration: " + str(self.totalBadRegistrations))
+        
+    def __str__(self):
+        print("Visual servo parameters:")
+        print("SErvo distance: " + str(self.servoDistance))
+        print("Max depth: " + str(self.maxDepth))
+        print("Min area box: " + str(self.minAreaBox))
+        print("Max offset box: " + str(self.maxOffsetBox))
+        print("Box offset box: " + str(self.boxOffset))
+        
+        print("Max allowed lost frames per 100: " + str(self.maxLostFrames))
+        print("Max allowed lost consecutive frames: " + str(self.maxLostConsecutiveFrames))
+        print("Gain z: " + str(self.z))
+        print("Gain b: " + str(self.b))
+        print("Max x: " + str(self.maxX))
+        print("Min x: " + str(self.minX))
+        print("Dev y: " + str(self.devY))
+        print("Dev z: " + str(self.devZ))
+        print("Dev theta: " + str(self.devTheta))
+        print("Velocity estimation(deltaT): " + str(self.deltaT))
+    
 if __name__ == "__main__":
     rospy.init_node('visual_servo')
 
     # Init #
     robotServo = visualServo()
-    
+
     # Perform visual servoing #
     robotServo.servo()
 
