@@ -5,10 +5,6 @@ import math
 import numpy as np
 from cv_bridge import CvBridge
 
-# Listen messages #
-def threadListenerFunc():
-    rospy.spin()
-
 # Read camera matrix #
 def readCameraInfo(cameraInfo):
     return cameraInfo.K, cameraInfo.D

@@ -11,7 +11,7 @@ import helpers
 # Camera frame: front Z, right X, down Y    #
 # Open3D frame: back Z, right X, up Y       #
 # xMin: in pixels                           #
-def createPCD(color, depth, mapX, mapY, xMin, xMax, yMin, yMax, maxDepth, minNumPoints=1500, maxNumPoints=10000):
+def createPCD(color, depth, mapX, mapY, xMin, xMax, yMin, yMax, maxDepth, minNumPoints=1200, maxNumPoints=10000):
 
     if(color.size == 0 or depth.size == 0 or depth.shape[0] != color.shape[0] or depth.shape[1] != color.shape[1]): 
         return None, -1
@@ -65,7 +65,7 @@ def createPCD(color, depth, mapX, mapY, xMin, xMax, yMin, yMax, maxDepth, minNum
     # Fix pcd #
     pcd, code = cleanPCD(pcd)
     
-    # Not enough inliers # 
+    # Not enough inliers #
     if(len(pcd.points) < minNumPoints or len(pcd.points) > maxNumPoints):
         return None, -2
 
@@ -83,7 +83,7 @@ def cleanPCD(pcd, voxelSize=0.008):
     pcd = pcd.select_down_sample(ind)
 
     # Remove floor #
-    plane_model, inliers = pcd.segment_plane(distance_threshold=0.022,
+    plane_model, inliers = pcd.segment_plane(distance_threshold=0.025,
                                              ransac_n=3,
                                              num_iterations=100)
     
@@ -101,12 +101,12 @@ def cleanPCD(pcd, voxelSize=0.008):
 # Find position and orientation of object           #
 # Use 3D model and perform point cloud registration #
 # Result is with respect to camera frame            #
-def estimatePos(templatePcd, targetPcd, transformationEstimation, voxelSize = 0.016, iter=50, fit=1e-9, rmse=1e-9, minInliers=400, minFitness = 0.65):
+def estimatePos(templatePcd, targetPcd, transformationEstimation, voxelSize = 0.016, iter=45, fit=1e-6, rmse=1e-6, minInliers=400, minFitness = 0.65):
     
     if(voxelSize <= 0 or iter <= 0 or fit <= 0 or rmse <= 0 or fit >= 1 or rmse >= 1):
         return -1, -1, -1, -1, np.identity(4), -1
 
-    if(template == None or pcd == None or pcd.has_points() == False or template.has_points() == False):
+    if(templatePcd == None or targetPcd == None or targetPcd.has_points() == False or templatePcd.has_points() == False):
         return -1, -1, -1, -1, np.identity(4), -1
 
     if(minInliers <= 0 or minFitness <= 0 or minFitness > 1):
@@ -121,21 +121,14 @@ def estimatePos(templatePcd, targetPcd, transformationEstimation, voxelSize = 0.
     
     template = template.voxel_down_sample(voxelSize)
     pcd = pcd.voxel_down_sample(voxelSize)
-  
-    pcd.transform(transformationEstimation)
+   
+    print("A") 
+    #pcd.transform(transformationEstimation)
     o3d.visualization.draw_geometries([template, pcd])
-
+    
     # Initial registration #
     if(np.all(transformationEstimation == np.identity(4))):
         
-        # Move pcd close to the template      #  
-        # Use the difference in their centers # 
-        cTemplate = template.get_center()
-        cTemplate[2] -= 0.05 # Fow this specific template 
-        cPcd = pcd.get_center()
-        dif = cTemplate - cPcd
-        pcd.translate(dif)
-    
         # Perform global registration #
         radius_feature = voxelSize * 2.5
         maxNN = 200
@@ -151,24 +144,28 @@ def estimatePos(templatePcd, targetPcd, transformationEstimation, voxelSize = 0.
                 o3d.registration.CorrespondenceCheckerBasedOnDistance(
                     distance_threshold)
             ], o3d.registration.RANSACConvergenceCriteria(1000000, 1700))
+
         
         # Save result #
         transformationEstimation = result.transformation
 
-    # Perform local registration #
-    radius = voxelSize * 1.4
-
+    radiusIcp = voxelSize * 2.0
+  
     result = o3d.registration.registration_icp(
-            pcd, template, radius, transformationEstimation,
+            pcd, template, radiusIcp, transformationEstimation,
             o3d.registration.TransformationEstimationPointToPlane(), 
             o3d.registration.ICPConvergenceCriteria(max_iteration=iter, relative_fitness=fit, relative_rmse=rmse))
+    
 
+    print("B") 
     pcd.transform(result.transformation)
     o3d.visualization.draw_geometries([template, pcd])
 
     # Check if registration is accurate #
     if result.fitness < minFitness or len(result.correspondence_set) < minInliers:
         return -1, -1, -1, -1, np.identity(4), -2
+
+    print(result.fitness)
     
     # Pick result #
     t = result.transformation

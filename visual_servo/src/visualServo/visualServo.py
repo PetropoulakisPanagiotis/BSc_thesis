@@ -36,6 +36,8 @@ class visualServo:
 
     def __init__(self):
 
+        rospy.init_node('visual_servo', disable_signals=True)
+        
         #########
         # Paths #
         #########
@@ -58,7 +60,7 @@ class visualServo:
         #############
         self.pioneerDetector = None
         self.templatePcd = None # 3D model of leader - for pos estimation 
-        self.maxDepth = 1.2 # Cut point away from the detected box(meters)
+        self.maxDepth = 0.8 # Cut point away from the detected box(meters)
         self.minAreaBox = 40 # Smaller box is false detection  
         self.minOffsetBox = 25 # Box must be inside the image by this offset(pixels) 
         self.boxOffset = 10  # Generate a bigger box from the detected to secure that leader lies inside   
@@ -102,7 +104,7 @@ class visualServo:
         # Necessary for velocity estimation        #
         # Depends on current hadware,              #
         # accuracy of detection and pos estimation #
-        self.deltaT = 20.0
+        self.deltaT = 500.0
  
         # Track pos #  
         self.xPrev = 0 
@@ -135,7 +137,7 @@ class visualServo:
         self.messages = TimeSynchronizer([self.subImageColor, self.subImageDepth, self.subCameraInfoColor, self.subCameraInfoDepth], queue_size=1)
 
         # Set callback function #
-        self.messages.registerCallback(self.callback)
+        self.messages.registerCallback(self.callbackKinect)
 
         # Velocity #
         #self.velPublisher = rospy.Publisher(self.topicVelocity, Twist, queue_size=1)
@@ -150,14 +152,18 @@ class visualServo:
         self.templatePcd = o3d.io.read_point_cloud(self.templatePath) 
 
         # Start listening messages #
-        self.threadListener = threading.Thread(target=helpers.threadListenerFunc)
+        self.threadListener = threading.Thread(target=self.listenerFunc)
         self.threadListener.start()
 
         if(self.debug):
             self.__str__()   
+
+    # Listener thread function #
+    def listenerFunc(self):
+        rospy.spin()
  
     # Read messages #
-    def callback(self, imageColor, imageDepth, cameraInfoColor, cameraInfoDepth):
+    def callbackKinect(self, imageColor, imageDepth, cameraInfoColor, cameraInfoDepth):
 
         self.messagesMutex.acquire()
         
@@ -187,8 +193,8 @@ class visualServo:
         ##################
         while True and not rospy.is_shutdown():
 
-            if self.debug:
-                print("---------------------------------------")
+            #if self.debug:
+            #    print("---------------------------------------")
 
             # Check state #
             if (self.lostFrames > self.maxLostFrames or self.lostConsecutiveFrames > self.maxLostConsecutiveFrames):
@@ -204,7 +210,7 @@ class visualServo:
             # excecution is too slow                     # 
             nowTimeFps = time.time()
             elapsed = nowTimeFps - startTimeFrame
-            if((elapsed >= 20.0 and self.xPrev != 0) or (self.xPrev != 0 and elapsed  > self.deltaT)):  
+            if((elapsed >= 500.0 and self.xPrev != 0) or (self.xPrev != 0 and elapsed  > self.deltaT)):  
                 self.excecutionCode = "Bad rate of loop"
                 break
 
@@ -240,7 +246,6 @@ class visualServo:
             # Fix frame for detector #
             colorRGB = cv2.cvtColor(currColor, cv2.COLOR_BGR2RGB)
             colorExpand = np.expand_dims(colorRGB, axis=0)
-          
             #################
             # Detect object #
             #################
@@ -270,10 +275,10 @@ class visualServo:
             if not valid:
                 self.excecutionCode = "Lost target" 
                 break
-
+            
             # Find position of leader with point cloud registration #
             xL, yL, zL, thetaL, transformationNew, typeError, code = self.estimatePos(colorRGB, currDepth, xMin, xMax, yMin, yMax)
-            
+
             if typeError == 1:
                 if code == -1:
                     self.excecutionCode = "Invalid arguments: estimation pos - createPCD" 
@@ -409,11 +414,11 @@ class visualServo:
         pcd, code = pclProcessing.createPCD(colorRGB, currDepth, self.mapX, self.mapY, xMin, xMax, yMin, yMax, self.maxDepth)   
         if pcd == None:
             return -1, -1, -1, -1, None, 1, code # 1-> createPCD fails + code 
-
+ 
         cX, cY, cZ, theta, transformationNew, code = pclProcessing.estimatePos(self.templatePcd, pcd, self.estimationPrev) 
-        if np.all(transformationNew == np.identity(4)):
+        if code != 0:
             return -1, -1, -1, -1, None, 2, code # 2-> estimatePos fails + code 
-
+ 
         x, y, z = helpers.convertCameraToRobot(cX, cY, cZ)
 
         # Target is far away #
@@ -427,7 +432,7 @@ class visualServo:
         return x, y, z, theta, transformationNew, 0, 0
 
     # Estimate velocity of object #
-    def estimateVelocity(self, x, xNew, y, yNew, theta, thetaNew, devX=0.1, devY=0.1, devTheta=0.27):
+    def estimateVelocity(self, x, xNew, y, yNew, theta, thetaNew, devX=0.15, devY=0.15, devTheta=0.34):
 
         if(self.deltaT <= 0):
             return None, None, -1 
@@ -515,9 +520,12 @@ class visualServo:
 
         # Terminating #
         rospy.signal_shutdown("Terminating\n")
-        
+       
         # Wait thread #
         self.threadListener.join()
+ 
+        # Stop ros #
+        rospy.signal_shutdown(0)
     
         self.printStats()
 
@@ -534,7 +542,11 @@ class visualServo:
         # Wait thread #
         self.threadListener.join()
 
+        # Stop ros #
+        rospy.signal_shutdown(0)
+
         self.printStats()
+
         exit()
 
     def printStats(self):
@@ -564,7 +576,6 @@ class visualServo:
         print("Box offset from the detected box: " + str(self.boxOffset))
    
 if __name__ == "__main__":
-    rospy.init_node('visual_servo')
 
     # Init #
     robotServo = visualServo()
