@@ -2,7 +2,6 @@ import numpy as np
 import cv2
 from matplotlib import pyplot as plt
 from PIL import Image
-import time
 
 class pioneerMatcher():
     def __init__(self):
@@ -12,11 +11,13 @@ class pioneerMatcher():
         # Read templates #
         for i in range(1, 65):
             img = Image.open(("data/t%d.jpg" % i))
-            self.templates.append(imageToNumpy(img))
+            img = imageToNumpy(img)
+            img = cv2.resize(img, (170, 170), interpolation=cv2.INTER_LINEAR)
+            self.templates.append(img)
 
         # Set similarity bounds #
         self.distance = 20
-        self.minInliers = 8
+        self.minInliers = 13
 
         ###############################
         # Find features for templates #
@@ -25,17 +26,22 @@ class pioneerMatcher():
         self.desTO = []
 
         # Find ORB #
-        self.orb = cv2.ORB_create(nfeatures=700, scaleFactor=1.1, edgeThreshold=25, patchSize=25, WTA_K=4)
+        self.orb = cv2.ORB_create(nfeatures=700, scaleFactor=1.15, edgeThreshold=25, patchSize=25, WTA_K=4)
         for i in range(len(self.templates)):
             kp, des = self.orb.detectAndCompute(self.templates[i], None)
             self.kpTO.append(kp)
             self.desTO.append(des)
 
-        # Init matchers #
+        # Init matcher #
         self.bfO = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
 
     # Check similarity of image #
     def query(self, img):
+
+        if(img.size == 0):
+            return False
+
+        img = cv2.resize(img, (170,170), interpolation=cv2.INTER_LINEAR)
 
         # Find features of image #
         kpIO, desIO = self.orb.detectAndCompute(img, None)
@@ -47,10 +53,9 @@ class pioneerMatcher():
         except:
             pass
 
-        # Compute ORB #
-        a = time.time()
         for i in range(len(self.templates)):
 
+            # Compute ORB #
             matches = self.bfO.match(self.desTO[i], desIO)
 
             count = 0
@@ -61,14 +66,13 @@ class pioneerMatcher():
             if count > self.minInliers:
                 return True
 
-            '''
-            matches = sorted(matches, key = lambda x:x.distance)
-            img3 = None
-            img3 = cv2.drawMatches(self.templates[i],self.kpTO[i],img,kpIO,matches[:10], img3, flags=2)
-            plt.imshow(img3),plt.show()
-            '''
-
         return False
+
+    def visualize(self, matches, img1, kp1, img2, kp2):
+        matches = sorted(matches, key = lambda x:x.distance)
+        img2 = None
+        img2 = cv2.drawMatches(img1, kp1, img2, kp2, matches[:10], img3, flags=2)
+        plt.imshow(img2),plt.show()
 
 def imageToNumpy(image):
     (width, height) = image.size
