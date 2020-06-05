@@ -359,12 +359,12 @@ class visualServo:
             return False
 
         if(self.z <= 0 or self.z >= 1 or self.b <= 0):
-            return False   
- 
+            return False
+
         # Position initialization            #
         # Follow robot with a fixed distance #
         xError = self.servoDistance - xL
-        yError = 0 - yL 
+        yError = 0 - yL
 
         # Fix gains #
         k1 = k3 = 2 * self.z * math.sqrt((omegaL ** 2) + (self.b * (uL ** 2)))
@@ -373,13 +373,13 @@ class visualServo:
         # Calculate velocities of follower #
         uF = (uL * math.cos(thetaL - thetaF)) + \
              (k1 * ((math.cos(thetaF) * xError) + (math.sin(thetaF) * yError)))
-      
+
         # Fix limits #
         if abs(thetaL - thetaF) <= 0.05:
             tmp = 1
         else:
-            tmp = (math.sin(thetaL - thetaF) / (thetaL - thetaF)) 
- 
+            tmp = (math.sin(thetaL - thetaF) / (thetaL - thetaF))
+
         omegaF = omegaL + \
                  (k2 * uL * tmp * (math.cos(thetaF) * xError - math.sin(thetaF) * yError)) + \
                  (k3 * (thetaL - thetaF))
@@ -415,12 +415,10 @@ class visualServo:
         if pcd == None:
             return -1, -1, -1, -1, None, 1, code # 1-> createPCD fails + code 
  
-        cX, cY, cZ, theta, transformationNew, code = pclProcessing.estimatePos(self.templatePcd, pcd, self.estimationPrev) 
+        x, y, z, theta, transformationNew, code = pclProcessing.estimatePos(self.templatePcd, pcd, self.estimationPrev) 
         if code != 0:
             return -1, -1, -1, -1, None, 2, code # 2-> estimatePos fails + code 
  
-        x, y, z = helpers.convertCameraToRobot(cX, cY, cZ)
-
         # Target is far away #
         lost, code = self.lostTarget(x, y, z, theta, self.maxX, self.minX, self.devY, self.devZ, self.devTheta)
         if lost: 
