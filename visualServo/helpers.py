@@ -6,7 +6,7 @@ import numpy as np
 import cv2
 import math
 
-# Read image from message #
+# Read image from ros message #
 def readImage(imageMessage):
 
     # Bridge with ros and opencv #
@@ -41,7 +41,7 @@ def createMap(K, width, height):
 
 # Find x, y of a pixel. Use some neighbors for better accuracy #
 # X, Y must not be quite close to the limits of the image      #
-def pixelToCoordinates(depth, x, y, mapX, mapY, xOffset=10, yOffset=10, minPoints=3):
+def pixelToCoordinates(depth, x, y, mapX, mapY, xOffset=5, yOffset=5, minPoints=3):
     X = 0
     Y = 0
     Z = 0
@@ -71,18 +71,18 @@ def pixelToCoordinates(depth, x, y, mapX, mapY, xOffset=10, yOffset=10, minPoint
 
     return X, Y, Z
 
+# Debug center of box #
 def drawCircle(image, x, y):
     image = cv2.circle(image, (x,y), 10, (255,0,0), 2)
     return image
 
-# Convert point to robot frame             #
-# Depends on the relative pos camera-robot #
-# Camera frame: front Z, right X, down Y   #
-# Robot frame: up Z, front X, left Y       #
-# Angles: right handed                     # 
+# Convert point to robot frame              #
+# Depends on the relative pose camera-robot #
+# Camera frame: front Z, right X, down Y    #
+# Robot frame: up Z, front X, left Y        #
+# Angles: right handed                      # 
 def cameraToRobot(cX, cY, cZ):
     translation = np.asarray([[-0.33], [-0.12], [0.64]])
-    #translation = np.asarray([[-0.33], [0.0], [0.64]])
     q = np.asarray([-0.49999, 0.499601, -0.499999, 0.500398])
     r = R.from_quat(q)
     r = r.as_dcm()
