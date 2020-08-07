@@ -26,8 +26,8 @@ class Controller():
         ###################
         self.servoDistance = 1.7 # Secure distance from leader
         self.eTol = 0.004 # Error tol
-        self.eKp = 1.5 # Gain distance
-        self.aKp = 2.0 # Gain angle
+        self.eKp = 1.7 # Gain distance
+        self.aKp = 1.0 # Gain angle
 
         # Vel ranges #
         self.maxUF = 0.5 # m/s
@@ -44,6 +44,7 @@ class Controller():
         if(self.debug):
             self.__str__()
 
+    # Main method                                          #
     # x,y goal coordinates must be relative to robot frame # 
     def calculateVelocities(self, x, y):
 
@@ -99,6 +100,7 @@ class Controller():
 	else:
             omegaF = 0
 
+        # For safety #
 	if e > self.eTol:
             uF = self.eKp * e
         else:
@@ -143,11 +145,11 @@ class Controller():
             return True, exitCode
 
         if self.warmUp == True and abs(self.leaderState.y - self.prevLeaderState.y) > self.devY:
-            exitCode = "Controller: lost target:  dev y: " + str(self.leaderState.y) + ", " + str(self.prevLeaderState.y)
+            exitCode = "Controller: lost target: dev y: " + str(self.leaderState.y) + ", " + str(self.prevLeaderState.y)
             return True, exitCode
 
         if self.leaderState.x > self.maxX or self.leaderState.x <= 0:
-            exitCode = "Controller: lost target: x:  " + str(self.leaderState.x)
+            exitCode = "Controller: lost target: x: " + str(self.leaderState.x)
             return True, exitCode
 
         d = math.sqrt((self.leaderState.x ** 2) + (self.leaderState.y ** 2))
@@ -195,13 +197,14 @@ class State():
 class experiment():
     def __init__(self):
 
+        # Call ros #
         rospy.init_node('controller', disable_signals=True)
 
         self.topicFollower = "/robot/robotnik_base_control/odom/" # Summit-xl 
         self.topicVel = "/robot/robotnik_base_control/cmd_vel/"
         self.followerState = Odometry()
 
-        # Read state #
+        # Read state odom #
         self.subFollower = Subscriber(self.topicFollower, Odometry, queue_size=1)
         self.subFollower.registerCallback(self.readFollowerState)
 
@@ -255,7 +258,7 @@ class experiment():
 
         return x, y
 
-    # Main method: Start robot #
+    # Main method: Move robot to goal #
     def start(self, goalX, goalY):
 
         while not rospy.is_shutdown():
@@ -318,13 +321,13 @@ class experiment():
         rospy.signal_shutdown(0)
         exit()
 
-# Step1: Launch official ros simulation with one robot #
-# Step2: Run this module                               #
+# Step1: Launch official ros summit-xl simulation with one robot #
+# Step2: Run this module                                         #
 if  __name__ == '__main__':
 
     # Goal state #
-    goalX = 1.9
-    goalY = 1.7
+    goalX = 1.75
+    goalY = -1.5
 
     # Reach goal #
     exp = experiment()
