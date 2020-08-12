@@ -1,17 +1,12 @@
-from skimage import img_as_float
-from skimage import measure
-from skimage import io
-from skimage.transform import resize
-from matplotlib import pyplot as plt
 import os
+from PIL import Image
 import numpy as np
 import imagehash
-from PIL import Image
-imagesName1 = []
-values = [] # Keep similar images 
-allNames = []
 
-threshold = 3 # Similarity 
+imagesName1 = []
+delFiles = [] # Similar files 
+values = [] # Keep similar images distance  
+threshold = 3
 
 # Set paths #
 path1 = '/home/petropoulakis/Desktop/TensorFlow/workspace/robot_detection/images/full/'
@@ -25,16 +20,15 @@ for file in files:
         imagesName1.append(file)
         #hashes.append(imagehash.dhash(Image.open(path1 + file), hash_size=32))
         hashes.append(imagehash.dhash(Image.open(path1 + file), hash_size=16))
-delFiles = []
-values = []
+
 
 # Compare images #
-end = len(imagesName1)
 count = 0
-for i in range(end):
+for i in range(len(imagesName1)):
     if count == 5000:
         print(i)
         count = 0
+
     count += 1
     for j in range(end):
         if(j <= i):
@@ -46,11 +40,10 @@ for i in range(end):
             delFiles.append((imagesName1[j], imagesName1[i]))
             values.append(totalVal)
 
+# Save similar images in log #
 indexes = np.argsort(values)
 with open(logFile, 'w') as fp:
     for i in range(len(indexes)):
-    #for i in range(len(delFiles)):
-    # Save result #
         fp.write("val: " + str(values[indexes[i]]) + " " + delFiles[indexes[i]][0] + " " + delFiles[indexes[i]][1] + "\n")
-        #fp.write(delFiles[i] +  "\n")
 
+# Petropoulakis Panagiotis #

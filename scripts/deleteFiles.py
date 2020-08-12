@@ -1,7 +1,10 @@
 import os
 
-dir = '/home/petropoulakis/Desktop/TensorFlow/workspace/robot_detection/images/full'
-#file = "/home/petropoulakis/Desktop/similarLog.txt"
+#######################
+# Delete inalid files #
+#######################
+
+dir = '/home/petropoulakis/Desktop/TensorFlow/workspace/robot_detection/images/fine_aug'
 file = "/home/petropoulakis/Desktop/check.txt"
 
 with open(file, 'r') as f:
@@ -16,9 +19,13 @@ with open(file, 'r') as f:
         try:
             os.unlink(name)
         except:
-            x = 0
+            pass
+
         try:
             os.unlink(xml)
         except:
-            x = 0
+            pass
+
         line = f.readline()
+
+# Petropoulakis Panagiotis #

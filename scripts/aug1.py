@@ -6,11 +6,11 @@ import xml.etree.ElementTree as ET
 import numpy as np
 import os
 
-imagesDir = "/home/petropoulakis/Desktop/TensorFlow/workspace/robot_detection/images/full/"
-saveDir = "/home/petropoulakis/Desktop/TensorFlow/workspace/robot_detection/images/new"
+imagesDir = "/home/petropoulakis/Desktop/TensorFlow/workspace/robot_detection/images/fine/"
+saveDir = "/home/petropoulakis/Desktop/TensorFlow/workspace/robot_detection/images/fine_aug/"
 
 # File id to start #
-counter = 1409
+counter = 60460
 
 # Read files of dir #
 files = os.listdir(imagesDir)
@@ -39,11 +39,11 @@ for image in imagesName:
 
     # Get box object #
     box = BoundingBoxesOnImage([BoundingBox(x1=x1,y1=y1,x2=x2,y2=y2)], shape=currImage.shape)
-
     #ia.imshow(box.draw_on_image(currImage))
 
-    # Augmentation to be performed #
+    # Augmentations to be performed #
     translate = np.arange(-0.2, 0.2, 0.012)
+    translatey = np.arange(-0.02, 0.02, 0.01)
 
     for x in translate:
         if(x != 0):
@@ -76,5 +76,37 @@ for image in imagesName:
             newXml.write(newPath + ".xml")
             imageio.imwrite(saveDir + newName, newImage)
             counter += 1
+
+        for y in translatey:
+            if(y != 0):
+
+                # Transform #
+                seq = iaa.Sequential([iaa.Affine(translate_percent={"y": y}, mode='edge')])
+                newImage, newBox = seq(image=newImage, bounding_boxes=newBox)
+
+                #ia.imshow(newBox.draw_on_image(newImage))
+
+                # Get new boxes #
+                newX1 = newBox.bounding_boxes[0].x1
+                newY1 = newBox.bounding_boxes[0].y1
+                newX2 = newBox.bounding_boxes[0].x2
+                newY2 = newBox.bounding_boxes[0].y2
+
+                # Find xml of image #
+                newXml = tree
+                newPath = saveDir + str(counter) + "_robot"
+                newXml.find('path').text = newPath + ".jpg"
+
+                # Add new values #
+                newName = str(counter) + "_robot.jpg"
+                newXml.find('filename').text = newName
+                newXml.find('object').find('bndbox').find('xmin').text = str(int(newX1))
+                newXml.find('object').find('bndbox').find('ymin').text = str(int(newY1))
+                newXml.find('object').find('bndbox').find('xmax').text = str(int(newX2))
+                newXml.find('object').find('bndbox').find('ymax').text = str(int(newY2))
+
+                newXml.write(newPath + ".xml")
+                imageio.imwrite(saveDir + newName, newImage)
+                counter += 1
 
 # Petropoulakis Panagiotis
