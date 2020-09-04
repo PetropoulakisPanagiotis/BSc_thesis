@@ -26,12 +26,12 @@ class Controller():
         ###################
         self.servoDistance = 1.7 # Secure distance from leader
         self.eTol = 0.004 # Error tol
-        self.eKp = 1.7 # Gain distance
-        self.aKp = 1.0 # Gain angle
+        self.eKp = 6.0 # Gain distance
+        self.aKp = 5.5 # Gain angle
 
         # Vel ranges #
-        self.maxUF = 0.5 # m/s
-        self.maxOmegaF = 0.4 # r/s
+        self.maxUF = 0.65 # m/s
+        self.maxOmegaF = 1.0 # r/s
 
         # Max - Min permitted ranges of target #
         self.devX = 0.5
@@ -193,7 +193,8 @@ class State():
         self.y = y
         self.a = a
 
-# Gazebo summit-xl experiment #
+# Gazebo summit-xl experiment - follow leader #
+# Use odometry                                #
 class experiment():
     def __init__(self):
 
@@ -201,12 +202,16 @@ class experiment():
         rospy.init_node('controller', disable_signals=True)
 
         self.topicFollower = "/robot/robotnik_base_control/odom/" # Summit-xl 
+        self.topicLeader = "/robot_b/robotnik_base_control/odom/" # Summit-xl 
         self.topicVel = "/robot/robotnik_base_control/cmd_vel/"
         self.followerState = Odometry()
+        self.leaderState = Odometry()
 
-        # Read state odom #
+        # Read state - odom #
         self.subFollower = Subscriber(self.topicFollower, Odometry, queue_size=1)
         self.subFollower.registerCallback(self.readFollowerState)
+        self.subLeader = Subscriber(self.topicLeader, Odometry, queue_size=1)
+        self.subLeader.registerCallback(self.readLeaderState)
 
         # Publish velocities commands #
         self.pubVel = rospy.Publisher(self.topicVel, Twist, queue_size=1)
@@ -223,7 +228,11 @@ class experiment():
     def readFollowerState(self, odom):
         self.followerState.pose = odom.pose
 
-    # Odom to x, y #
+    # Callback odom #
+    def readLeaderState(self, odom):
+        self.leaderState.pose = odom.pose
+
+    # Odom to x, y with respect to world frame #
     def getPos(self, odom):
         return odom.pose.pose.position.x, odom.pose.pose.position.y
 
@@ -243,8 +252,7 @@ class experiment():
 
 	return theta
 
-    # Convert goal pos to robot frame  #
-    # x, y, theta: odom frame          #
+    # Conert world coordinates to robot coordinates #
     def worldToRobot(self, goalX, goalY, x, y, theta):
         translation = np.asarray([[-x], [-y], [0]])
         r = R.from_euler("z", -theta, degrees=False)
@@ -258,23 +266,25 @@ class experiment():
 
         return x, y
 
-    # Main method: Move robot to goal #
-    def start(self, goalX, goalY):
+    # Main method: Follow the leader #
+    def start(self):
 
         while not rospy.is_shutdown():
 
-            # Read pos of robot with respect to world frame #
+            # Read pos of leader and follower with respect to world frame #
             x, y = self.getPos(self.followerState)
-            theta = self.getHeading(self.followerState)
+            xb, yb = self.getPos(self.leaderState)
 
-            # Fix pos #
-            x, y = self.worldToRobot(goalX, goalY, x, y, theta)
+
+            # Convert Leaders position relative to the Follower #
+            theta = self.getHeading(self.followerState)
+            x, y = self.worldToRobot(xb, yb, x, y, theta)
 
             # Call controller #
             u, omega, code = self.controller.calculateVelocities(x, y)
             print(code)
 
-            # Move robot to goal #
+            # Move follower #
             self.publishVelocities(u, omega)
 
     # Publish velocities to robot topic #
@@ -321,16 +331,11 @@ class experiment():
         rospy.signal_shutdown(0)
         exit()
 
-# Step1: Launch official ros summit-xl simulation with one robot #
-# Step2: Run this module                                         #
+# Step1: Launch official ros summit-xl simulation with two robot #
+# Step2: Run this module and bot.py                              #
 if  __name__ == '__main__':
 
-    # Goal state #
-    goalX = 1.75
-    goalY = -1.5
-
-    # Reach goal #
     exp = experiment()
-    exp.start(goalX, goalY)
+    exp.start()
 
 # Petropoulakis Panagiotis
