@@ -6,8 +6,19 @@ import numpy as np
 import time
 import random
 import signal
+import math
 
-def publishVelocities(pubVel, u, omega):
+
+# Call ros #
+rospy.init_node('bot', disable_signals=True)
+
+# Leader #
+topicVel = "/robot_b/robotnik_base_control/cmd_vel/"
+
+# Publish velocities commands #
+pubVel = rospy.Publisher(topicVel, Twist, queue_size=1)
+
+def publishVelocities(u, omega):
     velMsg = Twist()
 
     velMsg.linear.x = u
@@ -22,7 +33,7 @@ def publishVelocities(pubVel, u, omega):
     pubVel.publish(velMsg)
 
 # Stop robot #
-def stopLeader(pubVel):
+def stopLeader():
     velMsg = Twist()
 
     velMsg.linear.x = 0.0
@@ -38,32 +49,61 @@ def stopLeader(pubVel):
         pubVel.publish(velMsg)
         count += 1
 
-# Call ros #
-rospy.init_node('bot', disable_signals=True)
+# Handle signals for proper termination #
+def sigHandler(num, frame):
 
-topicVel = "/robot_b/robotnik_base_control/cmd_vel/"
+    print("Signal occurred:  " + str(num))
 
-# Publish velocities commands #
-pubVel = rospy.Publisher(topicVel, Twist, queue_size=1)
+    # Stop robot #
+    stopLeader()
 
-linearVel = 0.5
-endTime = time.time() + 60 * 1
-angluarTime = time.time() + 10
-sig = 1
+    # Close ros #
+    rospy.signal_shutdown(0)
+    exit()
 
+# Set sig handler for proper termination #
+signal.signal(signal.SIGINT, sigHandler)
+signal.signal(signal.SIGTERM, sigHandler)
+signal.signal(signal.SIGTSTP, sigHandler)
+
+# Constant linear #
+linearVel = 0.55
+endTime = time.time() + 60 * 2 # Run for 2 min the experiment
+
+# Create bucket of angular velocities #
+samplesAngular = set()
+num = 0.4
+while num <= 2.0:
+
+    samplesAngular.add(num)
+    num += 0.5
+
+# Pick initial random angular velocity #
+angularVel = random.sample(samplesAngular, 1)[0]
+
+count = 0
 # Take random actions #
 while time.time() < endTime:
 
-    # Update angular velocity #
-    if time.time > angluarTime:
-        angularVel = random.uniform(0.1, 0.7) * sig
-        sig *= -1
-        angularTime = time.time()
+    # Expondential decay #
+    if abs(angularVel) > 0.01:
+	angularVel *= 0.9999
+    else:
 
+        # Reset angular velocity #
+        angularVel = random.sample(samplesAngular, 1)[0]
+
+        # Change sign #
+        count += 1
+        if count == 2:
+            angularVel *= -1
+            count = 0
+
+    print("Leader: (uL: {} m/s, omegaL: {} r/s)".format(linearVel, angularVel))
     # Push commands #
-    publishVelocities(pubVel, linearVel, angularVel)
+    publishVelocities(linearVel, angularVel)
 
 # Stop movement #
-stopLeader(pubVel)
+stopLeader()
 
 # Petropoulakis Panagiotis

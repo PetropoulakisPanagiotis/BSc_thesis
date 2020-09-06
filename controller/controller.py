@@ -26,12 +26,12 @@ class Controller():
         ###################
         self.servoDistance = 1.7 # Secure distance from leader
         self.eTol = 0.004 # Error tol
-        self.eKp = 6.0 # Gain distance
-        self.aKp = 5.5 # Gain angle
+        self.eKp = 5.5 # Gain distance
+        self.aKp = 7.0 # Gain angle
 
         # Vel ranges #
         self.maxUF = 0.65 # m/s
-        self.maxOmegaF = 1.0 # r/s
+        self.maxOmegaF = 2.0 # r/s
 
         # Max - Min permitted ranges of target #
         self.devX = 0.5
@@ -252,15 +252,13 @@ class experiment():
 
 	return theta
 
-    # Conert world coordinates to robot coordinates #
+    # Conert pos of leader to robot coordinates #
     def worldToRobot(self, goalX, goalY, x, y, theta):
-        translation = np.asarray([[-x], [-y], [0]])
+        diff = np.asarray([[goalX - x], [goalY - y], [0]])
         r = R.from_euler("z", -theta, degrees=False)
         r = r.as_dcm()
 
-        c = np.asarray([[goalX], [goalY], [0]])
-        result = np.dot(r, c) + translation
-
+        result = np.dot(r, diff)
         x = result[0][0]
         y = result[1][0]
 
@@ -272,12 +270,13 @@ class experiment():
         while not rospy.is_shutdown():
 
             # Read pos of leader and follower with respect to world frame #
-            x, y = self.getPos(self.followerState)
-            xb, yb = self.getPos(self.leaderState)
-
+            followerState = self.followerState
+            leaderState = self.leaderState
+            x, y = self.getPos(followerState)
+            xb, yb = self.getPos(leaderState)
 
             # Convert Leaders position relative to the Follower #
-            theta = self.getHeading(self.followerState)
+            theta = self.getHeading(followerState)
             x, y = self.worldToRobot(xb, yb, x, y, theta)
 
             # Call controller #
