@@ -13,5 +13,5 @@ The source code and the experimental videos can be found at: [**dsdsdsdds**] (ht
 Petropoulakis Panagiotis petropoulakispanagiotis@gmail.com
 
 #### Acknowledgements 
-[Supervisor: Kostas J. Kyriakopoulos](http://www.controlsystemslab.gr/kkyria/)
+Supervisor: [Kostas J. Kyriakopoulos](http://www.controlsystemslab.gr/kkyria/)
    
