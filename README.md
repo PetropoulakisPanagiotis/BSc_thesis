@@ -14,6 +14,6 @@ The source code, the dataset and the experimental videos can be found at my pers
 Petropoulakis Panagiotis petropoulakispanagiotis@gmail.com
 
 #### Acknowledgements 
-Supervisor: [Prof. Kostas J. Kyriakopoulos](http://www.controlsystemslab.gr/kkyria/)<br />and Director at Control Systems Laboratory N.T.U.A.
+Supervisor: [Prof. Kostas J. Kyriakopoulos](http://www.controlsystemslab.gr/kkyria/)and Director at Control Systems Laboratory N.T.U.A.<br />
 Advisors: [Dr. George Karras](https://scholar.google.gr/citations?user=VxIC7-cAAAAJ&hl=el), [Michalis Logothetis](https://scholar.google.com/citations?user=fFLmpWsAAAAJ&hl=en), [PhD student Kostas Alevizos](http://www.controlsystemslab.gr/main/members/kostas-alevizos/),
 [PhD student Sotiris Aspragkathos](http://www.controlsystemslab.gr/main/members/sotiris-aspragkathos/)
