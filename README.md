@@ -2,7 +2,9 @@
 [![python](https://img.shields.io/badge/python-2.7-blue.svg)](https://www.python.org/downloads/release/python-270/)
 
 # BSc_thesis:
+<p align="center">
 Vision Based Leader-Follower Mobile Robot Schema by using MobileNets for Detection and an RGBD-Camera
+</p>
 <p align="center">
 <img src="experiments.png" width="440px" height="320px"> <br /> <br />
 </p>
