@@ -1,12 +1,10 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![python](https://img.shields.io/badge/python-2.7-blue.svg)](https://www.python.org/downloads/release/python-270/)
 
-# BSc_thesis
+# BSc_thesis: Vision Based Leader-Follower Mobile Robot Schema by using MobileNets for Detection and an RGBD-Camera
 <p align="center">
 <img src="experiments.png" width="440px" height="320px"> <br /> <br />
 </p>
-
-Titel: Vision Based Leader-Follower Mobile Robot Schema by using MobileNets for Detection and an RGBD-Camera
 
 The source code and the experimental videos can be found at: [**dsdsdsdds**] (https://google.com)
 
