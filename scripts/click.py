@@ -3,7 +3,7 @@ import time
 
 m = PyMouse()
 while True:
-    #m.click(320, 634)
-    #time.sleep(2)
-    m.click(772, 444)
+    m.click(600, 424)
+    #time.sleep(5)
+    #m.click(790, 424)
     time.sleep(150)

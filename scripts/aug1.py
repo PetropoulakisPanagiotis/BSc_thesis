@@ -49,11 +49,11 @@ for image in imagesName:
         if(x != 0):
 
             # Transform #
-            seq = iaa.Sequential([iaa.Affine(translate_percent={"x": x}, mode='edge')])
-            newImage, newBox = seq(image=currImage, bounding_boxes=box)
+                seq = iaa.Sequential([iaa.Affine(translate_percent={"x": x}, mode='edge')])
+                newImage, newBox = seq(image=newImage, bounding_boxes=newBox)
 
             #ia.imshow(newBox.draw_on_image(newImage))
-
+            
             # Get new boxes #
             newX1 = newBox.bounding_boxes[0].x1
             newY1 = newBox.bounding_boxes[0].y1
@@ -84,8 +84,8 @@ for image in imagesName:
                 seq = iaa.Sequential([iaa.Affine(translate_percent={"y": y}, mode='edge')])
                 newImage, newBox = seq(image=newImage, bounding_boxes=newBox)
 
-                #ia.imshow(newBox.draw_on_image(newImage))
 
+                #ia.imshow(newBox.draw_on_image(newImage))
                 # Get new boxes #
                 newX1 = newBox.bounding_boxes[0].x1
                 newY1 = newBox.bounding_boxes[0].y1
