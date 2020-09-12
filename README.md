@@ -4,7 +4,7 @@
 #### Vision Based Leader-Follower Mobile Robot Schema by using MobileNets for Detection and an RGBD-Camera
 
 <p align="center">
-<img src="experiments.png" width="440px" height="320px"> <br /> <br />
+<img src="experiments.png" width="470px" height="320px"> <br /> <br />
 </p>
 
 The source code and the experimental videos can be found at: [**dsdsdsdds**] (https://google.com)
