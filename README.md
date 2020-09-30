@@ -2,7 +2,7 @@
 [![python](https://img.shields.io/badge/python-2.7-blue.svg)](https://www.python.org/downloads/release/python-270/)
 (!!under construction!!)
 
-#### <align="center">A Leader-Follower Mobile Robot Scheme using an RGBD-Camera and MobileNets
+#### <p align="center">A Leader-Follower Mobile Robot Scheme using an RGBD-Camera and MobileNets</p>
 
 <p align="center">
 <img src="experiments.png" width="490px" height="320px"> <br /> <br />
