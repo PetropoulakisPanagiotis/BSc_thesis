@@ -7,7 +7,7 @@
 <img src="experiments.png" width="490px" height="320px"> <br /> <br />
 </p>
 
-The source code, the dataset and the experimental videos can be found at my personal [Google Drive](https://drive.google.com/drive/folders/1FQmJPG-sj2xHcH3shPUANIkJkorwxRfR?usp=sharing).
+Additional resources such videos and the Pioneer -3AT dataset can be found at my personal [Google Drive](https://drive.google.com/drive/folders/1FQmJPG-sj2xHcH3shPUANIkJkorwxRfR?usp=sharing).
 
 #### Citation
 If you find my thesis useful in your research, please consider citing:
