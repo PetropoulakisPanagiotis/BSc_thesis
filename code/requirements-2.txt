@@ -2,6 +2,6 @@ tensorflow==1.15.0
 ImageHash==4.1.0
 scipy==1.2.3
 numpy==1.16.6
-Pillow=6.2.2
+Pillow>=7.1.0
 matplotlibe=2.1.1
 opencv-python==3.4.2
