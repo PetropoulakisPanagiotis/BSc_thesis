@@ -13,12 +13,11 @@ Additional resources such videos and the Pioneer-3AT dataset can be found at my 
 * ROS distribution: [melodic](http://wiki.ros.org/melodic/Installation/Ubuntu).
 * Tools and libraries for a ROS Interface to the Kinect: [iai_kinect2](https://github.com/code-iai/iai_kinect2).
 * Object Detection: [tensorflow 1.15](https://www.tensorflow.org/install/pip), CUDA 9.0 and [TensorFlow Official Models 1.13.0](https://github.com/tensorflow/models/releases).
-* The required python packages can be found inside the BSc_thesis/code folder at requirements2.txt and requirements3.txt files.
+* The required python packages can be found inside the BSc_thesis/code folder into the requirements2.txt and requirements3.txt files.
 * ROS package to establish and manage the communication between the Desktop and the Follower's computer: [multimaster_fkie](http://wiki.ros.org/multimaster_fkie).
 * Simulation to tune the controller: [summit_xl_sim](https://github.com/RobotnikAutomation/summit_xl_sim).    
 
-*The code has been tested on Ubuntu 18.04.5 LTS in Python 2.7.17 and Python 3.6.9.
-
+:zap:The code has been tested on Ubuntu 18.04.5 LTS in Python 2.7.17 and Python 3.6.9.
 
 #### Citation
 If you find my thesis useful in your research, please consider citing:
