@@ -24,12 +24,12 @@ If you find my thesis useful in your research, please consider citing:
 
 ```bib
 @thesis{Petropoulakis2020,
-    author    = {Petropoulakis Panagiotis},
-    title     = {A Leader-Follower Mobile Robot Scheme using an RGBD-Camera and MobileNets},
-    type = {bscthesis}
-    url   = {https://github.com/PetropoulakisPanagiotis/BSc_thesis},
+    author      = {Petropoulakis Panagiotis},
+    title       = {A Leader-Follower Mobile Robot Scheme using an RGBD-Camera and MobileNets},
+    type        = {bscthesis}
+    url         = {https://github.com/PetropoulakisPanagiotis/BSc_thesis},
     institution = {Department of Informatics and Telecommunications of the University of Athens},
-    year      = {2020},
+    year        = {2020},
 }
 ```
 #### Acknowledgements 
