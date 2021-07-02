@@ -7,7 +7,7 @@
 <img src="experiments.png" width="490px" height="320px"> <br /> <br />
 </p>
 
-Additional resources such videos and the Pioneer-3AT dataset can be found at my personal [Google Drive](https://drive.google.com/drive/folders/1MBBMbAt_ohWsBvJ4Mf7LExarBU_arr4r?usp=sharing).
+<b>Pioneer-3AT dataset upon requat at petropoulakispanagiotis[at].gmail.com</b> 
 
 #### Requirements
 * ROS distribution: [melodic](http://wiki.ros.org/melodic/Installation/Ubuntu).
