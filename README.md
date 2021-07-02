@@ -7,7 +7,7 @@
 <img src="experiments.png" width="490px" height="320px"> <br /> <br />
 </p>
 
-<b>Pioneer-3AT dataset upon requat at petropoulakispanagiotis[at].gmail.com</b> 
+<b>You can receive Pioneer-3AT dataset upon request at petropoulakispanagiotis[at]gmail.com</b> 
 
 #### Requirements
 * ROS distribution: [melodic](http://wiki.ros.org/melodic/Installation/Ubuntu).
