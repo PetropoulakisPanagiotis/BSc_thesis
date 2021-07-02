@@ -24,7 +24,7 @@ If you find my thesis useful in your research, please consider citing:
 
 ```bib
 @thesis{Petropoulakis2020,
-    author      = {Petropoulakis Panagiotis},
+    author      = {Petropoulakis Panagiotis, Konstantinos J. Kyriakopoulos},
     title       = {A Leader-Follower Mobile Robot Scheme using an RGBD-Camera and MobileNets},
     type        = {bscthesis}
     url         = {https://github.com/PetropoulakisPanagiotis/BSc_thesis},
@@ -33,6 +33,6 @@ If you find my thesis useful in your research, please consider citing:
 }
 ```
 #### Acknowledgements 
-Supervisor: [Prof. Kostas J. Kyriakopoulos](http://www.controlsystemslab.gr/kkyria/)<br />
+Supervisor: [Prof. Konstantinos J. Kyriakopoulos](http://www.controlsystemslab.gr/kkyria/)<br />
 Advisors: [Dr. George Karras](https://scholar.google.gr/citations?user=VxIC7-cAAAAJ&hl=el), [Michalis Logothetis](https://scholar.google.com/citations?user=fFLmpWsAAAAJ&hl=en), [PhD student Kostas Alevizos](http://www.controlsystemslab.gr/main/members/kostas-alevizos/),
 [PhD student Sotiris Aspragkathos](http://www.controlsystemslab.gr/main/members/sotiris-aspragkathos/)
