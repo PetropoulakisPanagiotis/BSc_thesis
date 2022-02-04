@@ -4,7 +4,7 @@
 #### <p align="center">A Leader-Follower Mobile Robot Scheme using an RGBD-Camera and MobileNets</p>
 
 <p align="center">
-<img src="experiments.png" width="400px" height="310px"> 
+<img src="experiments.png" width="400px" height="290px"> 
 <img src="simulation.png" width="400px" height="280px"> 
 </p>
 <br /> <br />
