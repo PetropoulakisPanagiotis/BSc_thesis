@@ -4,8 +4,8 @@
 #### <p align="center">A Leader-Follower Mobile Robot Scheme using an RGBD-Camera and MobileNets</p>
 
 <p align="center">
-<img src="experiments.png" width="490px" height="320px"> 
-<img src="simulation.png" width="490px" height="320px"> 
+<img src="experiments.png" width="400px" height="310px"> 
+<img src="simulation.png" width="400px" height="310px"> 
 </p>
 <br /> <br />
 :zap:<b>You can receive Pioneer-3AT dataset upon request at petropoulakispanagiotis[at]gmail.com</b> 
