@@ -5,7 +5,7 @@
 
 <p align="center">
 <img src="experiments.png" width="400px" height="310px"> 
-<img src="simulation.png" width="400px" height="310px"> 
+<img src="simulation.png" width="400px" height="330px"> 
 </p>
 <br /> <br />
 :zap:<b>You can receive Pioneer-3AT dataset upon request at petropoulakispanagiotis[at]gmail.com</b> 
